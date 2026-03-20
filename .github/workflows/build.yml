@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
+        description: 'Release tag (e.g. v2.0.15). Leave empty to auto-generate.'
         required: false
         type: string
   push:
@@ -90,39 +91,30 @@ jobs:
         fileName: "android_keystore.jks"
         encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
 
+    - name: Resolve release tag
+      id: tag
+      run: |
+        if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+          echo "value=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+        else
+          VERSION=$(grep -m1 'versionName' ${{ github.workspace }}/V2rayNG/app/build.gradle.kts | grep -oP '"\K[^"]+')
+          DATE=$(date +'%Y%m%d-%H%M')
+          echo "value=v${VERSION}-${DATE}" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build APK
       run: |
         cd ${{ github.workspace }}/V2rayNG
         echo "sdk.dir=${ANDROID_HOME}" > local.properties
         chmod 755 gradlew
         ./gradlew assembleGeneralRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
-    
-    - name: Upload arm64-v8a APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: arm64-v8a
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*arm64-v8a*.apk
 
-    - name: Upload armeabi-v7a APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: armeabi-v7a
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*armeabi-v7a*.apk
-
-    - name: Upload x86 APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: x86-apk
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*x86*.apk
-
-    - name: Upload to release
+    - name: Create GitHub Release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
       with:
-        file: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*.apk
-        tag: ${{ github.event.inputs.release_tag }}
+        file: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/general/release/*.apk
+        tag: ${{ steps.tag.outputs.value }}
+        release_name: ${{ steps.tag.outputs.value }}
         file_glob: true
-        prerelease: true
+        prerelease: false
+        overwrite_files: true
