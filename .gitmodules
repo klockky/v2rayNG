@@ -6,4 +6,4 @@
 	url = https://github.com/heiher/hev-socks5-tunnel
 [submodule "V2rayNG/devicekit"]
 	path = V2rayNG/devicekit
-	url = https://github.com/lolka1333/v2rayNG-DeviceKit-Addon.git
+	url = https://github.com/klockky/v2rayNG-DeviceKit-Addon.git
