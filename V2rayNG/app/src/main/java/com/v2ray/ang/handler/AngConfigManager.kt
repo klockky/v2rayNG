@@ -25,6 +25,7 @@ import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.QRCodeDecoder
 import com.v2ray.ang.util.Utils
+import com.v2ray.devicekit.Compat
 import java.net.URI
 
 object AngConfigManager {
@@ -197,7 +198,8 @@ object AngConfigManager {
             servers.lines()
                 .distinct()
                 .forEach { str ->
-                    if (Utils.isValidSubUrl(str)) {
+                    val decrypted = Compat.decryptSubscriptionUrl(str)
+                    if (Utils.isValidSubUrl(decrypted)) {
                         count += importUrlAsSubscription(str)
                     }
                 }
@@ -587,16 +589,19 @@ object AngConfigManager {
      * @return The number of subscriptions imported.
      */
     private fun importUrlAsSubscription(url: String): Int {
+        val decryptedUrl = Compat.decryptSubscriptionUrl(url) ?: url
+
         val subscriptions = MmkvManager.decodeSubscriptions()
         subscriptions.forEach {
-            if (it.subscription.url == url) {
+            if (it.subscription.url == url || it.subscription.url == decryptedUrl) {
                 return 0
             }
         }
-        val uri = URI(Utils.fixIllegalUrl(url))
+
+        val uri = URI(Utils.fixIllegalUrl(decryptedUrl))
         val subItem = SubscriptionItem()
         subItem.remarks = uri.fragment ?: "import sub"
-        subItem.url = url
+        subItem.url = decryptedUrl
         MmkvManager.encodeSubscription("", subItem)
         return 1
     }
