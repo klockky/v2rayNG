@@ -6,6 +6,8 @@ import com.v2ray.ang.AppConfig.LOOPBACK
 import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.util.Utils.encode
 import com.v2ray.ang.util.Utils.urlDecode
+import com.v2ray.devicekit.Compat
+import com.v2ray.devicekit.Kit
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.IDN
@@ -135,13 +137,15 @@ object HttpUtil {
 
         while (redirects++ < maxRedirects) {
             if (currentUrl == null) continue
-            val conn = createProxyConnection(currentUrl, httpPort, timeout, timeout) ?: continue
-            val finalUserAgent = if (userAgent.isNullOrBlank()) {
-                "v2rayNG/${BuildConfig.VERSION_NAME}"
-            } else {
-                userAgent
-            }
-            conn.setRequestProperty("User-agent", finalUserAgent)
+            val effectiveUrl = Compat.decryptSubscriptionUrl(currentUrl) ?: currentUrl
+            val conn = createProxyConnection(effectiveUrl, httpPort, timeout, timeout) ?: continue
+            Kit.applyToConnectionFromSettings(
+                conn = conn,
+                context = com.v2ray.ang.AngApplication.application,
+                subscriptionUserAgent = userAgent,
+                defaultUserAgent = "v2rayNG/${BuildConfig.VERSION_NAME}",
+                appVersionName = BuildConfig.VERSION_NAME,
+            )
             conn.connect()
 
             val responseCode = conn.responseCode
