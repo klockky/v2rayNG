@@ -16,6 +16,7 @@ import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.util.Utils
+import com.v2ray.devicekit.Compat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -91,12 +92,15 @@ class SubEditActivity : BaseActivity() {
             return false
         }
         if (subItem.url.isNotEmpty()) {
-            if (!Utils.isValidUrl(subItem.url)) {
+            val validateUrl = Compat.decryptSubscriptionUrl(subItem.url) ?: subItem.url
+            subItem.url = validateUrl
+
+            if (!Utils.isValidUrl(validateUrl)) {
                 toast(R.string.toast_invalid_url)
                 return false
             }
 
-            if (!Utils.isValidSubUrl(subItem.url)) {
+            if (!Utils.isValidSubUrl(validateUrl)) {
                 toast(R.string.toast_insecure_url_protocol)
                 if (!subItem.allowInsecureUrl) {
                     return false

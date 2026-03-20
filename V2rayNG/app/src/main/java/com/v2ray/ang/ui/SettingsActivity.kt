@@ -18,6 +18,7 @@ import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.helper.MmkvPreferenceDataStore
 import com.v2ray.ang.util.Utils
+import com.v2ray.devicekit.SettingsUi
 import java.util.concurrent.TimeUnit
 
 class SettingsActivity : BaseActivity() {
@@ -64,6 +65,8 @@ class SettingsActivity : BaseActivity() {
             addPreferencesFromResource(R.xml.pref_settings)
 
             initPreferenceSummaries()
+
+            SettingsUi.install(this)
 
             localDns?.setOnPreferenceChangeListener { _, any ->
                 updateLocalDns(any as Boolean)
