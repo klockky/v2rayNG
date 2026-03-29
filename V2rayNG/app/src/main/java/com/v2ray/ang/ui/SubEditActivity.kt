@@ -16,7 +16,7 @@ import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.util.Utils
-import com.v2ray.devicekit.Compat
+import com.v2ray.devicekit.HappDecryptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -92,18 +92,32 @@ class SubEditActivity : BaseActivity() {
             return false
         }
         if (subItem.url.isNotEmpty()) {
-            val validateUrl = Compat.decryptSubscriptionUrl(subItem.url) ?: subItem.url
-            subItem.url = validateUrl
+            subItem.url = subItem.url.trim()
+            val rawUrl = subItem.url
 
-            if (!Utils.isValidUrl(validateUrl)) {
-                toast(R.string.toast_invalid_url)
-                return false
-            }
+            if (rawUrl.startsWith("happ://", ignoreCase = true)) {
+                val decryptedUrl = HappDecryptor.tryDecrypt(rawUrl)
+                if (decryptedUrl != null) {
+                    subItem.url = decryptedUrl
+                }
+            } else {
+                val decryptedUrl = HappDecryptor.tryDecrypt(rawUrl)
+                val validateUrl = decryptedUrl ?: rawUrl
 
-            if (!Utils.isValidSubUrl(validateUrl)) {
-                toast(R.string.toast_insecure_url_protocol)
-                if (!subItem.allowInsecureUrl) {
+                if (decryptedUrl != null) {
+                    subItem.url = decryptedUrl
+                }
+
+                if (!Utils.isValidUrl(validateUrl)) {
+                    toast(R.string.toast_invalid_url)
                     return false
+                }
+
+                if (!Utils.isValidSubUrl(validateUrl)) {
+                    toast(R.string.toast_insecure_url_protocol)
+                    if (!subItem.allowInsecureUrl) {
+                        return false
+                    }
                 }
             }
         }

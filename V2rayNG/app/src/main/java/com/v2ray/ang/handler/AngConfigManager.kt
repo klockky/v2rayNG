@@ -26,6 +26,7 @@ import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.QRCodeDecoder
 import com.v2ray.ang.util.Utils
 import com.v2ray.devicekit.Compat
+import com.v2ray.devicekit.HappDecryptor
 import java.net.URI
 
 object AngConfigManager {
@@ -199,7 +200,7 @@ object AngConfigManager {
                 .distinct()
                 .forEach { str ->
                     val decrypted = Compat.decryptSubscriptionUrl(str)
-                    if (Utils.isValidSubUrl(decrypted)) {
+                    if (Utils.isValidSubUrl(decrypted) || str.startsWith("happ://")) {
                         count += importUrlAsSubscription(str)
                     }
                 }
@@ -523,7 +524,13 @@ object AngConfigManager {
                 return SubscriptionUpdateResult(skipCount = 1)
             }
 
-            val url = HttpUtil.toIdnUrl(it.subscription.url)
+            val resolvedSubUrl = HappDecryptor.tryDecrypt(it.subscription.url) ?: it.subscription.url
+            val url = try {
+                HttpUtil.toIdnUrl(resolvedSubUrl)
+            } catch (e: Exception) {
+                Log.e(AppConfig.TAG, "Unsupported or malformed subscription URL: ${it.subscription.url}")
+                return SubscriptionUpdateResult(failureCount = 1)
+            }
             if (!Utils.isValidUrl(url)) {
                 return SubscriptionUpdateResult(failureCount = 1)
             }
