@@ -28,6 +28,15 @@ signing.properties
 *.aar
 *.so
 
+# Gradle flavor build output dirs
+V2rayNG/app/fdroid/
+V2rayNG/app/general/
+
+# Baseline profiles
+*.dm
+*.prof
+*.profm
+
 # =============================================================================
 # IntelliJ IDEA / Android Studio
 # =============================================================================
