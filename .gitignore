@@ -1,59 +1,111 @@
-# Ignore data and key store files
-*.dat
-*.jks
+# =============================================================================
+# Android / Kotlin / Gradle
+# =============================================================================
 
-# Ignore output JSON file
-V2rayNG/app/release/output.json
+# Build output
+build/
+**/build/
+out/
 
-# Ignore IDE and build system directories
-.idea/
+# Gradle
 .gradle/
-*.iml
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
 
-# Ignore local properties and DS_Store files
-/local.properties
-.DS_Store
-
-# Ignore build directories and captures
-/build
-/captures
-V2rayNG/app/build
-V2rayNG/build
-V2rayNG/local.properties
-
-# Ignore APK and AAR files
-*.apk
-*.aar
-
-# Ignore signing properties
+# Local configuration
+local.properties
+keystore.properties
 signing.properties
 
-# Ignore shared object files
+# Generated files
+**/gen/
+**/generated/
+
+# APK / AAB / native libs
+*.apk
+*.aab
+*.aar
 *.so
 
-# Ignore Google services JSON
-V2rayNG/app/google-services.json
+# =============================================================================
+# IntelliJ IDEA / Android Studio
+# =============================================================================
 
-# Additional common Android/Java ignores
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+atlassian-ide-plugin.xml
+
+# =============================================================================
+# Signing & Secrets
+# =============================================================================
+
+*.jks
+*.keystore
+*.p12
+*.pfx
+google-services.json
+V2rayNG/app/google-services.json
+**/release/output.json
+**/release/output-metadata.json
+
+# =============================================================================
+# OS generated
+# =============================================================================
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =============================================================================
+# Logs & temp files
+# =============================================================================
+
 *.log
 *.tmp
 *.bak
 *.swp
+*.swo
 *.orig
+*~
+
+# =============================================================================
+# Java / Kotlin compiled
+# =============================================================================
+
 *.class
 *.jar
 *.war
 *.ear
-
-# Ignore executable files
-*.exe
-*.dll
-*.obj
-*.o
 *.pyc
-*.pyo
 
-# Ignore files from other IDEs
+# =============================================================================
+# NDK / C/C++ (used in this project)
+# =============================================================================
+
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.exe
+.externalNativeBuild/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# =============================================================================
+# Other IDEs
+# =============================================================================
+
 .vscode/
 .classpath
 .project
@@ -61,6 +113,9 @@ V2rayNG/app/google-services.json
 *.sublime-workspace
 *.sublime-project
 
-# Ignore OS-specific files
-Thumbs.db
-.DS_Store
+# =============================================================================
+# Profiling / captures
+# =============================================================================
+
+captures/
+*.hprof
