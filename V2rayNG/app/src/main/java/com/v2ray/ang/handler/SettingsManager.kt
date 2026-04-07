@@ -278,10 +278,16 @@ object SettingsManager {
 
     /**
      * Get the HTTP port.
-     * @return The HTTP port.
+     * For Xray builds, HTTP is only a separate inbound when "append HTTP proxy" is enabled (socks+1);
+     * otherwise this matches the SOCKS port for legacy callers.
      */
     fun getHttpPort(): Int {
-        return getSocksPort() + if (Utils.isXray()) 0 else 1
+        val socks = getSocksPort()
+        return if (Utils.isXray()) {
+            if (MmkvManager.decodeSettingsBool(AppConfig.PREF_APPEND_HTTP_PROXY) == true) socks + 1 else socks
+        } else {
+            socks + 1
+        }
     }
 
     /**

@@ -227,8 +227,8 @@
     <string name="title_pref_start_scan_immediate">Сканировать при запуске</string>
     <string name="summary_pref_start_scan_immediate">Начинать сканирование сразу при запуске приложения или запускать функцию сканирования камерой или из изображения через панель инструментов</string>
 
-    <string name="title_pref_append_http_proxy">Дополнительный HTTP-прокси</string>
-    <string name="summary_pref_append_http_proxy">HTTP-прокси будет использоваться напрямую (из браузера и других поддерживающих приложений), минуя виртуальный сетевой адаптер (Android 10+)</string>
+    <string name="title_pref_append_http_proxy">Локальный HTTP inbound (Xray)</string>
+    <string name="summary_pref_append_http_proxy">Включает второй inbound HTTP на порту SOCKS+1 с тем же сессионным паролем, что и SOCKS. Системный HTTP-прокси не задаётся: Android не передаёт логин/пароль в приложения, а открытый прокси на localhost раскрывал бы путь VPN.</string>
 
     <string name="title_pref_double_column_display">Профили в два столбца</string>
     <string name="summary_pref_double_column_display">Список профилей отображается двумя столбцами, что позволяет показать больше информации на экране. Требуется перезапуск приложения.</string>

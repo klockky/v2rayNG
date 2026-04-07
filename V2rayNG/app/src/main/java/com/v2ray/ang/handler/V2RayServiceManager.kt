@@ -173,8 +173,10 @@ object V2RayServiceManager {
         }
 
         Log.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for ${config.remarks}")
+        LocalInboundAuth.regenerateSession()
         val result = V2rayConfigManager.getV2rayConfig(service, guid)
         if (!result.status) {
+            LocalInboundAuth.clearSession()
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to get V2Ray config")
             return false
         }
@@ -186,6 +188,7 @@ object V2RayServiceManager {
             mFilter.addAction(Intent.ACTION_USER_PRESENT)
             ContextCompat.registerReceiver(service, mMsgReceive, mFilter, Utils.receiverFlags())
         } catch (e: Exception) {
+            LocalInboundAuth.clearSession()
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to register receiver", e)
             return false
         }
@@ -200,12 +203,14 @@ object V2RayServiceManager {
             NotificationManager.showNotification(currentConfig)
             coreController.startLoop(result.content, tunFd)
         } catch (e: Exception) {
+            LocalInboundAuth.clearSession()
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to start core loop", e)
             return false
         }
 
         if (coreController.isRunning == false) {
             Log.e(AppConfig.TAG, "StartCore-Manager: Core failed to start")
+            LocalInboundAuth.clearSession()
             MessageUtil.sendMsg2UI(service, AppConfig.MSG_STATE_START_FAILURE, "")
             NotificationManager.cancelNotification()
             return false
@@ -216,6 +221,7 @@ object V2RayServiceManager {
             NotificationManager.startSpeedNotification(currentConfig)
             Log.i(AppConfig.TAG, "StartCore-Manager: Core started successfully")
         } catch (e: Exception) {
+            LocalInboundAuth.clearSession()
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to complete startup", e)
             return false
         }
@@ -248,6 +254,8 @@ object V2RayServiceManager {
         } catch (e: Exception) {
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to unregister receiver", e)
         }
+
+        LocalInboundAuth.clearSession()
 
         return true
     }

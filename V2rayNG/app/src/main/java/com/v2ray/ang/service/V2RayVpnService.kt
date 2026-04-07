@@ -9,7 +9,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.net.ProxyInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -17,7 +16,6 @@ import android.os.StrictMode
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.v2ray.ang.AppConfig
-import com.v2ray.ang.AppConfig.LOOPBACK
 import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.contracts.ServiceControl
 import com.v2ray.ang.contracts.Tun2SocksControl
@@ -118,6 +116,7 @@ class V2RayVpnService : VpnService(), ServiceControl {
             stopAllService()
             return
         }
+        runTun2socks()
     }
 
     override fun stopService() {
@@ -152,8 +151,6 @@ class V2RayVpnService : VpnService(), ServiceControl {
             stopSelf()
             return
         }
-
-        runTun2socks()
     }
 
     /**
@@ -259,9 +256,8 @@ class V2RayVpnService : VpnService(), ServiceControl {
         // Android Q (API 29) and above: Configure metering and HTTP proxy
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
-            if (MmkvManager.decodeSettingsBool(AppConfig.PREF_APPEND_HTTP_PROXY)) {
-                builder.setHttpProxy(ProxyInfo.buildDirectProxy(LOOPBACK, SettingsManager.getHttpPort()))
-            }
+            // Do not call setHttpProxy: local HTTP inbound uses session password, and ProxyInfo has no way
+            // to pass credentials. Advertising an unauthenticated proxy would let apps bypass VPN policy via loopback.
         }
     }
 

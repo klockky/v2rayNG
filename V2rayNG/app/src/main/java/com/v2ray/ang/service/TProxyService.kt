@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.contracts.Tun2SocksControl
+import com.v2ray.ang.handler.LocalInboundAuth
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import java.io.File
@@ -71,6 +72,10 @@ class TProxyService(
             appendLine("  port: ${socksPort}")
             appendLine("  address: ${AppConfig.LOOPBACK}")
             appendLine("  udp: 'udp'")
+            LocalInboundAuth.sessionCredentials()?.let { (u, p) ->
+                appendLine("  username: '${u.replace("'", "''")}'")
+                appendLine("  password: '${p.replace("'", "''")}'")
+            }
 
             // Read-write timeout settings
             val timeoutSetting = MmkvManager.decodeSettingsString(AppConfig.PREF_HEV_TUNNEL_RW_TIMEOUT) ?: AppConfig.HEVTUN_RW_TIMEOUT

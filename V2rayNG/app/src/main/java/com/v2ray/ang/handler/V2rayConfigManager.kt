@@ -362,6 +362,25 @@ object V2rayConfigManager {
         return SettingsManager.isVpnMode() && !SettingsManager.isUsingHevTun()
     }
 
+    private fun applyLocalInboundAuth(inbound: V2rayConfig.InboundBean, isSocks: Boolean) {
+        val settings = inbound.settings ?: return
+        LocalInboundAuth.sessionCredentials()?.let { (u, p) ->
+            if (isSocks) {
+                settings.auth = "password"
+            } else {
+                settings.auth = null
+            }
+            settings.accounts = arrayListOf(V2rayConfig.InboundBean.InboundAccountBean(u, p))
+        } ?: run {
+            if (isSocks) {
+                settings.auth = "noauth"
+            } else {
+                settings.auth = null
+            }
+            settings.accounts = null
+        }
+    }
+
     /**
      * Configures the inbound settings for V2ray.
      *
@@ -392,12 +411,23 @@ object V2rayConfigManager {
                 inbound1.sniffing?.destOverride?.add("fakedns")
             }
 
+            applyLocalInboundAuth(inbound1, isSocks = true)
+
             if (!Utils.isXray()) {
                 val inbound2 = JsonUtil.fromJson(JsonUtil.toJson(inbound1), V2rayConfig.InboundBean::class.java) ?: return false
                 inbound2.tag = EConfigType.HTTP.name.lowercase()
                 inbound2.port = SettingsManager.getHttpPort()
                 inbound2.protocol = EConfigType.HTTP.name.lowercase()
+                applyLocalInboundAuth(inbound2, isSocks = false)
                 v2rayConfig.inbounds.add(inbound2)
+            } else if (MmkvManager.decodeSettingsBool(AppConfig.PREF_APPEND_HTTP_PROXY) == true) {
+                val inboundHttp =
+                    JsonUtil.fromJson(JsonUtil.toJson(inbound1), V2rayConfig.InboundBean::class.java) ?: return false
+                inboundHttp.tag = EConfigType.HTTP.name.lowercase()
+                inboundHttp.port = SettingsManager.getHttpPort()
+                inboundHttp.protocol = EConfigType.HTTP.name.lowercase()
+                applyLocalInboundAuth(inboundHttp, isSocks = false)
+                v2rayConfig.inbounds.add(inboundHttp)
             }
 
             if (needTun()) {

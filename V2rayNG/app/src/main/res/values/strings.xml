@@ -231,8 +231,8 @@
     <string name="title_pref_start_scan_immediate">Start scanning immediately</string>
     <string name="summary_pref_start_scan_immediate">Open the camera to scan immediately at startup, otherwise you can choose to scan the code or select a photo in the toolbar</string>
 
-    <string name="title_pref_append_http_proxy">Append HTTP Proxy to VPN</string>
-    <string name="summary_pref_append_http_proxy">HTTP proxy will be used directly from (browser/ some supported apps), without going through the virtual NIC device (Android 10+)</string>
+    <string name="title_pref_append_http_proxy">Local HTTP inbound (Xray)</string>
+    <string name="summary_pref_append_http_proxy">When enabled, Xray also listens for HTTP proxy on port SOCKS+1 with the same session password as SOCKS. System-wide HTTP proxy is not set: Android cannot pass proxy credentials, and an open proxy would expose the VPN path on loopback.</string>
 
     <string name="title_pref_double_column_display">Enable double column display</string>
     <string name="summary_pref_double_column_display">The profile list is displayed in double columns, allowing more content to be displayed on the screen. You need to restart the application to take effect.</string>
@@ -368,6 +368,36 @@
     <string name="title_configuration_backup">Backup config</string>
     <string name="title_configuration_restore">Restore config</string>
     <string name="title_configuration_share">Share config</string>
+
+    <!-- Bottom navigation tabs -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_proxies">Proxies</string>
+    <string name="nav_profiles">Profiles</string>
+    <string name="nav_tools">Tools</string>
+
+    <!-- Dashboard screen -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_network_speed">Network Speed</string>
+    <string name="dashboard_upload">Upload</string>
+    <string name="dashboard_download">Download</string>
+    <string name="dashboard_traffic">Traffic Usage</string>
+    <string name="dashboard_routing_mode">Outbound Mode</string>
+    <string name="dashboard_routing_rule">Rule</string>
+    <string name="dashboard_routing_global">Global</string>
+    <string name="dashboard_routing_direct">Direct</string>
+    <string name="dashboard_ip_detection">IP Detection</string>
+    <string name="dashboard_internal_ip">Internal IP</string>
+    <string name="dashboard_memory">Memory</string>
+    <string name="dashboard_vpn_options">VPN Options</string>
+    <string name="dashboard_connected_time">%1$02d:%2$02d:%3$02d</string>
+    <string name="dashboard_speed_zero">0 B/s</string>
+    <string name="dashboard_no_ip">—</string>
+    <string name="dashboard_connect">Connect</string>
+    <string name="dashboard_disconnect">Disconnect</string>
+    <string name="dashboard_test_delay">Test Latency</string>
+    <string name="dashboard_options">Options</string>
+    <string name="mode_vpn">VPN</string>
+    <string name="mode_proxy_only">Proxy only</string>
     <string name="title_webdav_config_setting">WebDAV Settings</string>
     <string name="title_webdav_config_setting_unknown">Please configure WebDAV first.</string>
     <string name="title_webdav_url">WebDAV server URL</string>

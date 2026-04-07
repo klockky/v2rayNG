@@ -176,7 +176,9 @@ class SettingsActivity : BaseActivity() {
             val vpn = value == VPN
             localDns?.isEnabled = vpn
             fakeDns?.isEnabled = vpn
-            appendHttpProxy?.isEnabled = vpn
+            val xray = Utils.isXray()
+            appendHttpProxy?.isVisible = xray
+            appendHttpProxy?.isEnabled = vpn && xray
 //            localDnsPort?.isEnabled = vpn
             vpnDns?.isEnabled = vpn
             vpnBypassLan?.isEnabled = vpn
