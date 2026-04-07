@@ -173,7 +173,7 @@ object V2RayServiceManager {
         }
 
         Log.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for ${config.remarks}")
-        LocalInboundAuth.regenerateSession()
+        LocalInboundAuth.prepareForCoreStart()
         val result = V2rayConfigManager.getV2rayConfig(service, guid)
         if (!result.status) {
             LocalInboundAuth.clearSession()

@@ -5,6 +5,7 @@ import android.view.View
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequest
@@ -14,7 +15,10 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.AppConfig.VPN
 import com.v2ray.ang.R
 import com.v2ray.ang.extension.toLongEx
+import com.v2ray.ang.extension.toast
+import com.v2ray.ang.handler.LocalInboundAuth
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.helper.MmkvPreferenceDataStore
 import com.v2ray.ang.util.Utils
@@ -52,6 +56,9 @@ class SettingsActivity : BaseActivity() {
         private val autoUpdateCheck by lazy { findPreference<CheckBoxPreference>(AppConfig.SUBSCRIPTION_AUTO_UPDATE) }
         private val autoUpdateInterval by lazy { findPreference<EditTextPreference>(AppConfig.SUBSCRIPTION_AUTO_UPDATE_INTERVAL) }
         private val mode by lazy { findPreference<ListPreference>(AppConfig.PREF_MODE) }
+        private val localProxyInfo by lazy { findPreference<Preference>(AppConfig.PREF_LOCAL_PROXY_INFO) }
+        private val localProxyCopyUser by lazy { findPreference<Preference>(AppConfig.PREF_LOCAL_PROXY_COPY_USER) }
+        private val localProxyCopyPass by lazy { findPreference<Preference>(AppConfig.PREF_LOCAL_PROXY_COPY_PASS) }
 
         private val hevTunLogLevel by lazy { findPreference<ListPreference>(AppConfig.PREF_HEV_TUNNEL_LOGLEVEL) }
         private val hevTunRwTimeout by lazy { findPreference<EditTextPreference>(AppConfig.PREF_HEV_TUNNEL_RW_TIMEOUT) }
@@ -107,12 +114,27 @@ class SettingsActivity : BaseActivity() {
                     lp.summary = if (idx >= 0) lp.entries[idx] else valueStr
                 }
                 updateMode(valueStr)
+                // Persist runs after this listener; credentials are created in MmkvPreferenceDataStore.
+                view?.post {
+                    updateLocalProxyCredentialsPreference(
+                        MmkvManager.decodeSettingsString(AppConfig.PREF_MODE, VPN)
+                    )
+                }
                 true
             }
             mode?.dialogLayoutResource = R.layout.preference_with_help_link
 
             useHevTun?.setOnPreferenceChangeListener { _, newValue ->
                 updateHevTunSettings(newValue as Boolean)
+                true
+            }
+
+            localProxyCopyUser?.setOnPreferenceClickListener {
+                copyLocalProxyUsernameToClipboard()
+                true
+            }
+            localProxyCopyPass?.setOnPreferenceClickListener {
+                copyLocalProxyPasswordToClipboard()
                 true
             }
         }
@@ -174,6 +196,9 @@ class SettingsActivity : BaseActivity() {
 
         private fun updateMode(value: String?) {
             val vpn = value == VPN
+            if (vpn) {
+                LocalInboundAuth.clearPersistentProxyCredentials()
+            }
             localDns?.isEnabled = vpn
             fakeDns?.isEnabled = vpn
             val xray = Utils.isXray()
@@ -200,6 +225,56 @@ class SettingsActivity : BaseActivity() {
                     )
                 )
             }
+            updateLocalProxyCredentialsPreference(value)
+        }
+
+        private fun updateLocalProxyCredentialsPreference(mode: String?) {
+            val info = localProxyInfo ?: return
+            val copyUser = localProxyCopyUser ?: return
+            val copyPass = localProxyCopyPass ?: return
+            val show = mode == AppConfig.MODE_PROXY_ONLY
+            info.isVisible = show
+            copyUser.isVisible = show
+            copyPass.isVisible = show
+            if (!show) return
+            val creds = LocalInboundAuth.persistentProxyCredentials() ?: return
+            val socksPort = SettingsManager.getSocksPort()
+            val httpLine = when {
+                !Utils.isXray() -> "HTTP 127.0.0.1:${SettingsManager.getHttpPort()}"
+                MmkvManager.decodeSettingsBool(AppConfig.PREF_APPEND_HTTP_PROXY) == true ->
+                    "HTTP 127.0.0.1:${SettingsManager.getHttpPort()}"
+                else -> null
+            }
+            val hint = getString(R.string.summary_pref_local_proxy_copy_hint)
+            info.summary = buildString {
+                append("SOCKS5 127.0.0.1:")
+                append(socksPort)
+                append('\n')
+                httpLine?.let {
+                    append(it)
+                    append('\n')
+                }
+                append('\n')
+                append(hint)
+            }
+            copyUser.summary = creds.first
+            copyPass.summary = getString(R.string.summary_local_proxy_password_masked)
+        }
+
+        private fun copyLocalProxyUsernameToClipboard() {
+            val ctx = requireContext()
+            LocalInboundAuth.ensurePersistentProxyCredentialsInStorage()
+            val user = LocalInboundAuth.persistentProxyCredentials()?.first ?: return
+            Utils.setClipboard(ctx, user)
+            ctx.toast(R.string.toast_local_proxy_username_copied)
+        }
+
+        private fun copyLocalProxyPasswordToClipboard() {
+            val ctx = requireContext()
+            LocalInboundAuth.ensurePersistentProxyCredentialsInStorage()
+            val pass = LocalInboundAuth.persistentProxyCredentials()?.second ?: return
+            Utils.setClipboard(ctx, pass)
+            ctx.toast(R.string.toast_local_proxy_password_copied)
         }
 
         private fun updateLocalDns(enabled: Boolean) {

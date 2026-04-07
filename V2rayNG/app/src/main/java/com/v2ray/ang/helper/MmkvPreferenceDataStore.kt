@@ -2,6 +2,7 @@ package com.v2ray.ang.helper
 
 import androidx.preference.PreferenceDataStore
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.handler.LocalInboundAuth
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
@@ -15,6 +16,12 @@ class MmkvPreferenceDataStore : PreferenceDataStore() {
 
     override fun putString(key: String, value: String?) {
         MmkvManager.encodeSettings(key, value)
+        if (key == AppConfig.PREF_MODE) {
+            when (value) {
+                AppConfig.MODE_PROXY_ONLY -> LocalInboundAuth.ensureProxyOnlyCredentialsInMmkv()
+                AppConfig.VPN -> LocalInboundAuth.clearPersistentProxyCredentials()
+            }
+        }
         notifySettingChanged(key)
     }
 

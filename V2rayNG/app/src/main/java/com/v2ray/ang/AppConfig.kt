@@ -66,6 +66,13 @@ object AppConfig {
     const val PREF_LOGLEVEL = "pref_core_loglevel"
     const val PREF_OUTBOUND_DOMAIN_RESOLVE_METHOD = "pref_outbound_domain_resolve_method"
     const val PREF_MODE = "pref_mode"
+    /** Stored login for local SOCKS when running in proxy-only mode (cleared when switching to VPN). */
+    const val PREF_LOCAL_PROXY_AUTH_USER = "pref_local_proxy_auth_user"
+    const val PREF_LOCAL_PROXY_AUTH_PASS = "pref_local_proxy_auth_pass"
+    /** Settings screen: proxy-only mode — addresses, copy user, copy password. */
+    const val PREF_LOCAL_PROXY_INFO = "pref_local_proxy_info"
+    const val PREF_LOCAL_PROXY_COPY_USER = "pref_local_proxy_copy_user"
+    const val PREF_LOCAL_PROXY_COPY_PASS = "pref_local_proxy_copy_pass"
     const val PREF_IS_BOOTED = "pref_is_booted"
     const val PREF_CHECK_UPDATE_PRE_RELEASE = "pref_check_update_pre_release"
     const val PREF_GEO_FILES_SOURCES = "pref_geo_files_sources"
@@ -188,6 +195,8 @@ object AppConfig {
 
     /** Give a good name to this, IDK*/
     const val VPN = "VPN"
+    /** Must match `mode_value` in values/arrays.xml. */
+    const val MODE_PROXY_ONLY = "Proxy only"
     const val VPN_MTU = 1500
 
     /** hev-sock5-tunnel read-write-timeout value */

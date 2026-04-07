@@ -399,6 +399,13 @@
     <string name="dashboard_options">Options</string>
     <string name="mode_vpn">VPN</string>
     <string name="mode_proxy_only">Proxy only</string>
+    <string name="title_pref_local_proxy_info">Local proxy (proxy-only mode)</string>
+    <string name="title_pref_local_proxy_copy_user">Username — tap to copy</string>
+    <string name="title_pref_local_proxy_copy_pass">Password — tap to copy</string>
+    <string name="summary_pref_local_proxy_copy_hint">Stays the same until you switch back to VPN mode.</string>
+    <string name="summary_local_proxy_password_masked">••••••••</string>
+    <string name="toast_local_proxy_username_copied">Username copied</string>
+    <string name="toast_local_proxy_password_copied">Password copied</string>
     <string name="title_webdav_config_setting">WebDAV Settings</string>
     <string name="title_webdav_config_setting_unknown">Please configure WebDAV first.</string>
     <string name="title_webdav_url">WebDAV server URL</string>

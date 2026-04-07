@@ -257,6 +257,13 @@
     <string name="title_outbound_domain_resolve_method">Предопределение исходящего домена</string>
     <string name="title_mode">Режим</string>
     <string name="title_mode_help">Нажмите для получения дополнительной информации</string>
+    <string name="title_pref_local_proxy_info">Локальный прокси (только прокси)</string>
+    <string name="title_pref_local_proxy_copy_user">Имя пользователя — нажмите, чтобы скопировать</string>
+    <string name="title_pref_local_proxy_copy_pass">Пароль — нажмите, чтобы скопировать</string>
+    <string name="summary_pref_local_proxy_copy_hint">Не меняются, пока вы снова не выберете режим VPN.</string>
+    <string name="summary_local_proxy_password_masked">••••••••</string>
+    <string name="toast_local_proxy_username_copied">Имя пользователя скопировано</string>
+    <string name="toast_local_proxy_password_copied">Пароль скопирован</string>
     <string name="title_language">Язык</string>
     <string name="title_ui_settings">Настройки интерфейса</string>
     <string name="title_pref_ui_mode_night">Тема интерфейса</string>
