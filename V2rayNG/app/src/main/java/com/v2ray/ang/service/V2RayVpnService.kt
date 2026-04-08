@@ -32,6 +32,8 @@ class V2RayVpnService : VpnService(), ServiceControl {
     private lateinit var mInterface: ParcelFileDescriptor
     private var isRunning = false
     private var tun2SocksService: Tun2SocksControl? = null
+    private var tunPacketFilter: TunPacketFilter? = null
+    private var mEffectiveInterface: ParcelFileDescriptor? = null
 
     /**destroy
      * Unfortunately registerDefaultNetworkCallback is going to return our VPN interface: https://android.googlesource.com/platform/frameworks/base/+/dda156ab0c5d66ad82bdcf76cda07cbc0a9c8a2e
@@ -111,12 +113,47 @@ class V2RayVpnService : VpnService(), ServiceControl {
             Log.e(AppConfig.TAG, "StartCore-VPN: Interface not initialized")
             return
         }
-        if (!V2RayServiceManager.startCoreLoop(mInterface)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            mEffectiveInterface = createPacketFilter()
+        }
+        val iface = mEffectiveInterface ?: mInterface
+        if (!V2RayServiceManager.startCoreLoop(iface)) {
             Log.e(AppConfig.TAG, "StartCore-VPN: Failed to start core loop")
             stopAllService()
             return
         }
         runTun2socks()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun createPacketFilter(): ParcelFileDescriptor? {
+        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY) != true) return null
+        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS) != true) return null
+        val packages = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET)
+        if (packages.isNullOrEmpty()) return null
+
+        val blockedUids = packages.mapNotNull { pkg ->
+            try { packageManager.getApplicationInfo(pkg, 0).uid }
+            catch (_: PackageManager.NameNotFoundException) { null }
+        }.toSet()
+        if (blockedUids.isEmpty()) return null
+
+        return try {
+            val filter = TunPacketFilter(
+                tunInterface = mInterface,
+                connectivityManager = connectivity,
+                blockedUids = blockedUids,
+                mtu = SettingsManager.getVpnMtu(),
+            )
+            filter.start()
+            tunPacketFilter = filter
+            ParcelFileDescriptor.fromFd(filter.filteredFd)
+        } catch (e: Exception) {
+            Log.e(AppConfig.TAG, "TunFilter: failed to install, running unfiltered", e)
+            tunPacketFilter?.stop()
+            tunPacketFilter = null
+            null
+        }
     }
 
     override fun stopService() {
@@ -311,10 +348,11 @@ class V2RayVpnService : VpnService(), ServiceControl {
      * Starts the tun2socks process with the appropriate parameters.
      */
     private fun runTun2socks() {
+        val iface = mEffectiveInterface ?: mInterface
         if (SettingsManager.isUsingHevTun()) {
             tun2SocksService = TProxyService(
                 context = applicationContext,
-                vpnInterface = mInterface,
+                vpnInterface = iface,
                 isRunningProvider = { isRunning },
                 restartCallback = { runTun2socks() }
             )
@@ -342,6 +380,9 @@ class V2RayVpnService : VpnService(), ServiceControl {
         tun2SocksService?.stopTun2Socks()
         tun2SocksService = null
 
+        tunPacketFilter?.stop()
+        tunPacketFilter = null
+
         V2RayServiceManager.stopCoreLoop()
 
         if (isForced) {
@@ -351,6 +392,13 @@ class V2RayVpnService : VpnService(), ServiceControl {
             //in a row for several times. You will find that later created v2ray core report port in use
             //which means the first v2ray core somehow failed to stop and release the port.
             stopSelf()
+
+            try {
+                mEffectiveInterface?.let { if (it !== mInterface) it.close() }
+                mEffectiveInterface = null
+            } catch (e: Exception) {
+                Log.e(AppConfig.TAG, "TunFilter: failed to close effective interface", e)
+            }
 
             try {
                 if (::mInterface.isInitialized) {
