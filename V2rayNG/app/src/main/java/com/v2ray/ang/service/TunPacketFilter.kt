@@ -43,6 +43,8 @@ class TunPacketFilter(
     private val connectivityManager: ConnectivityManager,
     /** UIDs whose outgoing packets must be silently dropped. Must not be empty. */
     val blockedUids: Set<Int>,
+    /** UID → package name mapping for blocked UIDs (used for firewall log display). */
+    private val uidToPackage: Map<Int, String> = emptyMap(),
     private val mtu: Int = DEFAULT_MTU,
 ) {
     companion object {
@@ -272,8 +274,7 @@ class TunPacketFilter(
         // Fast path: valid cache hit.
         uidCache[srcPort]?.let { (uid, ts) ->
             if (now - ts < CACHE_TTL_MS) {
-                if (uid in blockedUids) {
-                    Log.w(TAG, "TunFilter: DROP (cached) uid=$uid srcPort=$srcPort")
+                if (uid == Process.INVALID_UID || uid in blockedUids) {
                     return true
                 }
                 return false
@@ -300,18 +301,22 @@ class TunPacketFilter(
             uid = procUid
         }
 
-        // Cache result (including INVALID_UID = -1) so unknown connections are not re-queried
-        // every packet.  INVALID_UID is never in blockedUids so it is always passed through.
         uidCache[srcPort] = uid to now
 
-        Log.d(TAG, "TunFilter: lookup uid=$uid srcPort=$srcPort proto=$protocol src=$srcIp dst=$dstIp:$dstPort blocked=${uid in blockedUids}")
+        Log.d(TAG, "TunFilter: lookup uid=$uid srcPort=$srcPort proto=$protocol src=$srcIp dst=$dstIp:$dstPort")
 
-        if (uid in blockedUids) {
+        // Drop packets from blocked UIDs OR unidentifiable sockets (uid=-1).
+        // All legitimate traffic gets a valid UID; uid=-1 means the socket is hidden
+        // from the system (root SO_BINDTODEVICE, SELinux-isolated namespace, etc.) —
+        // exactly the bypass technique we want to block.
+        if (uid == Process.INVALID_UID || uid in blockedUids) {
+            val reason = if (uid == Process.INVALID_UID) "unidentifiable" else "blocked"
             Log.w(
                 TAG,
-                "TunFilter: DROP uid=$uid proto=$protocol " +
+                "TunFilter: DROP ($reason) uid=$uid proto=$protocol " +
                     "src=$srcIp:$srcPort dst=$dstIp:$dstPort",
             )
+            TunFirewallLog.record(uid, uidToPackage[uid], dstIp.hostAddress ?: dstIp.toString(), dstPort, protocol)
             return true
         }
         return false

@@ -633,6 +633,7 @@ class MainActivity : HelperBaseActivity(), NavigationView.OnNavigationItemSelect
             R.id.settings -> requestActivityLauncher.launch(Intent(this, SettingsActivity::class.java))
             R.id.promotion -> Utils.openUri(this, "${Utils.decode(AppConfig.APP_PROMOTION_URL)}?t=${System.currentTimeMillis()}")
             R.id.logcat -> startActivity(Intent(this, LogcatActivity::class.java))
+            R.id.firewall_log -> startActivity(Intent(this, FirewallLogActivity::class.java))
             R.id.check_for_update -> startActivity(Intent(this, CheckUpdateActivity::class.java))
             R.id.backup_restore -> requestActivityLauncher.launch(Intent(this, BackupActivity::class.java))
             R.id.about -> startActivity(Intent(this, AboutActivity::class.java))

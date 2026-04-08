@@ -272,6 +272,7 @@
     <string name="title_pref_hev_tunnel_rw_timeout">Hev Tun read/write timeout (seconds) (tcp,udp default 300,60)</string>
 
     <string name="title_logcat">Logcat</string>
+    <string name="title_firewall_log">Firewall Log</string>
     <string name="logcat_copy">Copy</string>
     <string name="logcat_clear">Clear</string>
     <string name="title_service_restart">Service restart</string>

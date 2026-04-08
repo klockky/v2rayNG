@@ -132,17 +132,21 @@ class V2RayVpnService : VpnService(), ServiceControl {
         val packages = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET)
         if (packages.isNullOrEmpty()) return null
 
-        val blockedUids = packages.mapNotNull { pkg ->
-            try { packageManager.getApplicationInfo(pkg, 0).uid }
-            catch (_: PackageManager.NameNotFoundException) { null }
-        }.toSet()
-        if (blockedUids.isEmpty()) return null
+        val uidToPackage = mutableMapOf<Int, String>()
+        packages.forEach { pkg ->
+            try {
+                val uid = packageManager.getApplicationInfo(pkg, 0).uid
+                uidToPackage[uid] = pkg
+            } catch (_: PackageManager.NameNotFoundException) {}
+        }
+        if (uidToPackage.isEmpty()) return null
 
         return try {
             val filter = TunPacketFilter(
                 tunInterface = mInterface,
                 connectivityManager = connectivity,
-                blockedUids = blockedUids,
+                blockedUids = uidToPackage.keys,
+                uidToPackage = uidToPackage,
                 mtu = SettingsManager.getVpnMtu(),
             )
             filter.start()
