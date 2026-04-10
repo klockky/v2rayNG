@@ -68,8 +68,6 @@ data class V2rayConfig(
     ) {
         data class OutSettingsBean(
             var vnext: List<VnextBean>? = null,
-            var fragment: FragmentBean? = null,
-            var noises: List<NoiseBean>? = null,
             var servers: List<ServersBean>? = null,
             /*Blackhole*/
             var response: Response? = null,
@@ -107,18 +105,6 @@ data class V2rayConfig(
                     var flow: String? = null
                 )
             }
-
-            data class FragmentBean(
-                var packets: String? = null,
-                var length: String? = null,
-                var interval: String? = null
-            )
-
-            data class NoiseBean(
-                var type: String? = null,
-                var packet: String? = null,
-                var delay: String? = null
-            )
 
             data class ServersBean(
                 var address: String = "",
@@ -162,7 +148,7 @@ data class V2rayConfig(
             var realitySettings: TlsSettingsBean? = null,
             var grpcSettings: GrpcSettingsBean? = null,
             var hysteriaSettings: HysteriaSettingsBean? = null,
-            var finalmask: FinalMaskBean? = null,
+            var finalmask: Any? = null,
             val dsSettings: Any? = null,
             var sockopt: SockoptBean? = null
         ) {
@@ -292,28 +278,50 @@ data class V2rayConfig(
 
             data class HysteriaSettingsBean(
                 var version: Int,
-                var auth: String? = null,
-                var up: String? = null,
-                var down: String? = null,
-                var udphop: HysteriaUdpHopBean? = null
-            ) {
-                data class HysteriaUdpHopBean(
-                    var port: String? = null,
-                    var interval: Int? = null
-                )
-            }
+                var auth: String? = null
+            )
 
+            //https://xtls.github.io/config/transport.html#finalmaskobject
             data class FinalMaskBean(
                 var tcp: List<MaskBean>? = null,
-                var udp: List<MaskBean>? = null
+                var udp: List<MaskBean>? = null,
+                var quicParams: QuicParamsBean? = null
             ) {
                 data class MaskBean(
                     var type: String,
                     var settings: MaskSettingsBean? = null
                 ) {
                     data class MaskSettingsBean(
-                        var password: String? = null,
-                        var domain: String? = null
+                        val password: String? = null,
+                        val domain: String? = null,
+                        // fragment
+                        val packets: String? = null,
+                        val length: String? = null,
+                        val delay: String? = null,
+                        // val maxSplit: String? = null,
+                        // noise
+                        val reset: Int? = null,
+                        val noise: List<NoiseMaskBean>? = null
+                    ) {
+                        data class NoiseMaskBean(
+                            val rand: String? = null,
+                            // val randRange: String? = null,
+                            // val type: String? = null,
+                            // val packet: String? = null,
+                            val delay: String? = null,
+                        )
+                    }
+                }
+                data class QuicParamsBean(
+                    var congestion: String? = null,
+                    var brutalUp: String? = null,
+                    var brutalDown: String? = null,
+                    var udpHop: UdpHopBean? = null,
+                ) {
+                    // Nested data class for the udpHop JSON object
+                    data class UdpHopBean(
+                        var ports: String? = null,
+                        var interval: String? = null
                     )
                 }
             }
