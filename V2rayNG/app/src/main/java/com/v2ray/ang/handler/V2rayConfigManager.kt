@@ -425,9 +425,9 @@ object V2rayConfigManager {
                 // Root mode has its own transparent-redirect data path and
                 // must not expose any SOCKS/HTTP listener: apps route through
                 // the kernel via iptables NAT REDIRECT directly into the
-                // dokodemo-door inbound below. We capture the sniffing config
-                // from the template's SOCKS inbound before dropping it so the
-                // redirect inbound keeps the same sniff behaviour.
+                // dokodemo-door inbounds below. We capture the sniffing
+                // config from the template's SOCKS inbound before dropping
+                // it so the redirect inbound keeps the same sniff behaviour.
                 val redirectSniffing = inbound1.sniffing?.let {
                     V2rayConfig.InboundBean.SniffingBean(
                         enabled = it.enabled,
@@ -458,6 +458,18 @@ object V2rayConfigManager {
                     sniffing = redirectSniffing
                 )
                 v2rayConfig.inbounds.add(redirect)
+
+                // NOTE: we intentionally do NOT create a UDP DNS inbound
+                // or a matching `-p udp --dport 53 -j REDIRECT` iptables
+                // rule. On modern Android many apps' DNS lookups are
+                // issued by netd/system uids, which breaks per-app owner
+                // matching: bypass apps would end up with DNS forced
+                // through the core, and without a dedicated `dns-out`
+                // outbound route their queries time out. Users who want
+                // encrypted DNS in Root mode should turn on Android
+                // Private DNS (Settings → Network → Private DNS), which
+                // uses DoT on TCP 853 and is caught naturally by the TCP
+                // REDIRECT above.
             }
         } catch (e: Exception) {
             Log.e(AppConfig.TAG, "Failed to configure inbounds", e)
@@ -467,11 +479,15 @@ object V2rayConfigManager {
     }
 
     /**
-     * Transparent-redirect inbound port used by Root mode. Derived from the
-     * SOCKS port so there is a single source of truth.
+     * Transparent-redirect inbound port used by Root mode. Prefers the
+     * runtime OS-allocated port picked at service start so every session
+     * gets a fresh loopback port and co-resident profilers can't watch a
+     * constant. Falls back to a deterministic `socksPort + offset` if the
+     * runtime value isn't set (e.g. inside unit tests or before a service
+     * is running).
      */
     fun getRedirectPort(socksPort: Int = SettingsManager.getSocksPort()): Int =
-        socksPort + AppConfig.PORT_REDIRECT_OFFSET
+        SettingsManager.getRuntimeRedirectPort() ?: (socksPort + AppConfig.PORT_REDIRECT_OFFSET)
 
     /**
      * Configures the fake DNS settings if enabled.

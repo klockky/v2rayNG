@@ -51,7 +51,10 @@ data class V2rayConfig(
             var accounts: ArrayList<AccountBean>? = null,
             // dokodemo-door transparent redirect inbound fields (used by Root mode).
             var network: String? = null,
-            var followRedirect: Boolean? = null
+            var followRedirect: Boolean? = null,
+            // dokodemo-door destination override (used by UDP DNS inbound).
+            var address: String? = null,
+            var port: Int? = null
         ) {
             data class AccountBean(
                 var user: String = "",

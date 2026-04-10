@@ -184,12 +184,18 @@ object V2RayServiceManager {
         // downstream consumers (v2ray inbound, hev-socks5-tunnel YAML) pull
         // from SettingsManager.getSocksPort() and will agree on it.
         SettingsManager.beginRuntimeSocksPort()
+        // Root mode always rolls fresh loopback ports for both the TCP
+        // transparent-redirect inbound and the UDP DNS redirect inbound so
+        // that a co-resident profiler cannot rely on constant port numbers
+        // to fingerprint the app.
+        SettingsManager.beginRuntimeRedirectPorts()
 
         Log.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for ${config.remarks}")
         val result = V2rayConfigManager.getV2rayConfig(service, guid)
         if (!result.status) {
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to get V2Ray config")
             SettingsManager.clearRuntimeSocksPort()
+            SettingsManager.clearRuntimeRedirectPorts()
             return false
         }
 
@@ -264,8 +270,10 @@ object V2RayServiceManager {
         }
 
         // Drop the ephemeral randomized SOCKS port so the next non-random
-        // start reads the user's configured value from MMKV again.
+        // start reads the user's configured value from MMKV again, and
+        // clear the Root-mode runtime redirect ports.
         SettingsManager.clearRuntimeSocksPort()
+        SettingsManager.clearRuntimeRedirectPorts()
 
         return true
     }
