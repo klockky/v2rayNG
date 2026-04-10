@@ -179,10 +179,17 @@ object V2RayServiceManager {
             return false
         }
 
+        // If the user enabled "randomize SOCKS port on launch" (VPN mode only),
+        // pick a fresh ephemeral port now, before the config is built. All
+        // downstream consumers (v2ray inbound, hev-socks5-tunnel YAML) pull
+        // from SettingsManager.getSocksPort() and will agree on it.
+        SettingsManager.beginRuntimeSocksPort()
+
         Log.i(AppConfig.TAG, "StartCore-Manager: Starting core loop for ${config.remarks}")
         val result = V2rayConfigManager.getV2rayConfig(service, guid)
         if (!result.status) {
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to get V2Ray config")
+            SettingsManager.clearRuntimeSocksPort()
             return false
         }
 
@@ -255,6 +262,10 @@ object V2RayServiceManager {
         } catch (e: Exception) {
             Log.e(AppConfig.TAG, "StartCore-Manager: Failed to unregister receiver", e)
         }
+
+        // Drop the ephemeral randomized SOCKS port so the next non-random
+        // start reads the user's configured value from MMKV again.
+        SettingsManager.clearRuntimeSocksPort()
 
         return true
     }

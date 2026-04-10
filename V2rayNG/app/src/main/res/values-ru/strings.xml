@@ -218,6 +218,8 @@
 
     <string name="title_pref_socks_port">Порт локального прокси</string>
     <string name="summary_pref_socks_port">Порт локального прокси</string>
+    <string name="title_pref_socks_port_randomize">Рандомизировать порт при запуске</string>
+    <string name="summary_pref_socks_port_randomize">Только для VPN-режима. При каждом старте сервиса выбирается новый эфемерный SOCKS-порт.</string>
 
     <string name="title_pref_local_dns_port">Порт локальной DNS</string>
     <string name="summary_pref_local_dns_port">Порт локальной DNS</string>

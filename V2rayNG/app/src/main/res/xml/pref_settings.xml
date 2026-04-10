@@ -157,6 +157,12 @@
             android:summary="10808"
             android:title="@string/title_pref_socks_port" />
 
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="pref_socks_port_randomize"
+            android:summary="@string/summary_pref_socks_port_randomize"
+            android:title="@string/title_pref_socks_port_randomize" />
+
         <EditTextPreference
             android:key="pref_remote_dns"
             android:summary="@string/summary_pref_remote_dns"

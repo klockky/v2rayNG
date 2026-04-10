@@ -54,6 +54,7 @@ class SettingsActivity : BaseActivity() {
         private val autoUpdateCheck by lazy { findPreference<CheckBoxPreference>(AppConfig.SUBSCRIPTION_AUTO_UPDATE) }
         private val autoUpdateInterval by lazy { findPreference<EditTextPreference>(AppConfig.SUBSCRIPTION_AUTO_UPDATE_INTERVAL) }
         private val mode by lazy { findPreference<ListPreference>(AppConfig.PREF_MODE) }
+        private val socksPortRandomize by lazy { findPreference<CheckBoxPreference>(AppConfig.PREF_SOCKS_PORT_RANDOMIZE) }
         private val proxyAddressPref by lazy { findPreference<CopyablePreference>("pref_proxy_address") }
         private val proxyPortPref by lazy { findPreference<CopyablePreference>("pref_proxy_socks_port") }
         private val proxyUserPref by lazy { findPreference<CopyablePreference>("pref_proxy_user") }
@@ -292,6 +293,7 @@ class SettingsActivity : BaseActivity() {
             vpnInterfaceAddress?.isEnabled = vpn
             vpnMtu?.isEnabled = vpn
             useHevTun?.isEnabled = vpn
+            socksPortRandomize?.isEnabled = vpn
             updateHevTunSettings(false)
             if (vpn) {
                 updateLocalDns(

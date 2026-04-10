@@ -82,6 +82,10 @@ object AppConfig {
     // tunneling/work profile isolation and learn the outbound VPN IP.
     const val PREF_SOCKS_AUTH_USER = "pref_socks_auth_user"
     const val PREF_SOCKS_AUTH_PASS = "pref_socks_auth_pass"
+    // When enabled and running in VPN mode, a fresh random SOCKS port is
+    // picked at every service start so that a co-resident profiler can't
+    // rely on 10808 being present.
+    const val PREF_SOCKS_PORT_RANDOMIZE = "pref_socks_port_randomize"
 
     /** Cache keys. */
     const val CACHE_SUBSCRIPTION_ID = "cache_subscription_id"
