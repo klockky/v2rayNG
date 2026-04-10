@@ -269,6 +269,20 @@
     <string name="logcat_copy">Копировать</string>
     <string name="logcat_clear">Очистить</string>
     <string name="title_service_restart">Перезапуск службы</string>
+    <string name="title_proxy_info">Данные прокси</string>
+    <string name="proxy_info_address">Адрес</string>
+    <string name="proxy_info_socks_port">SOCKS5-порт</string>
+    <string name="proxy_info_http_port">HTTP-порт</string>
+    <string name="proxy_info_username">Логин</string>
+    <string name="proxy_info_password">Пароль</string>
+    <string name="proxy_info_copy">Копировать</string>
+    <string name="proxy_info_copy_all">Копировать всё</string>
+    <string name="proxy_info_copied">Скопировано</string>
+    <string name="proxy_info_hint">Используй эти данные в системных настройках прокси или в другом приложении. Они не меняются между перезапусками.</string>
+    <string name="proxy_info_root_disabled">В Root-режиме SOCKS-инбаунд не создаётся. Весь трафик перехватывается прозрачно через iptables.</string>
+    <string name="proxy_info_port_invalid">Порт должен быть от 1 до 65535</string>
+    <string name="proxy_info_value_required">Значение не может быть пустым</string>
+    <string name="proxy_info_long_press_hint">Тап — скопировать, зажать — редактировать</string>
     <string name="title_del_all_config">Удалить профили</string>
     <string name="title_del_duplicate_config">Удалить дубликаты профилей</string>
     <string name="title_del_invalid_config">Удалить нерабочие профили</string>
@@ -392,6 +406,7 @@
     <string-array name="mode_entries">
         <item>VPN</item>
         <item>Прокси</item>
+        <item>Root (прозрачный)</item>
     </string-array>
 
     <string-array name="ui_mode_night">

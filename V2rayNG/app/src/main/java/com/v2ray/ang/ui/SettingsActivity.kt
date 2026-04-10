@@ -14,7 +14,9 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.AppConfig.VPN
 import com.v2ray.ang.R
 import com.v2ray.ang.extension.toLongEx
+import com.v2ray.ang.extension.toast
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.helper.MmkvPreferenceDataStore
 import com.v2ray.ang.util.Utils
@@ -52,6 +54,10 @@ class SettingsActivity : BaseActivity() {
         private val autoUpdateCheck by lazy { findPreference<CheckBoxPreference>(AppConfig.SUBSCRIPTION_AUTO_UPDATE) }
         private val autoUpdateInterval by lazy { findPreference<EditTextPreference>(AppConfig.SUBSCRIPTION_AUTO_UPDATE_INTERVAL) }
         private val mode by lazy { findPreference<ListPreference>(AppConfig.PREF_MODE) }
+        private val proxyAddressPref by lazy { findPreference<CopyablePreference>("pref_proxy_address") }
+        private val proxyPortPref by lazy { findPreference<CopyablePreference>("pref_proxy_socks_port") }
+        private val proxyUserPref by lazy { findPreference<CopyablePreference>("pref_proxy_user") }
+        private val proxyPassPref by lazy { findPreference<CopyablePreference>("pref_proxy_pass") }
 
         private val hevTunLogLevel by lazy { findPreference<ListPreference>(AppConfig.PREF_HEV_TUNNEL_LOGLEVEL) }
         private val hevTunRwTimeout by lazy { findPreference<EditTextPreference>(AppConfig.PREF_HEV_TUNNEL_RW_TIMEOUT) }
@@ -111,10 +117,113 @@ class SettingsActivity : BaseActivity() {
             }
             mode?.dialogLayoutResource = R.layout.preference_with_help_link
 
+            // Wire up the proxy-info rows: tap = copy, long-press = edit.
+            // Address is fixed to 127.0.0.1 — not editable.
+            proxyAddressPref?.setOnPreferenceClickListener {
+                copyToClipboard(AppConfig.LOOPBACK)
+                true
+            }
+            proxyAddressPref?.onLongClick = null
+
+            proxyPortPref?.setOnPreferenceClickListener {
+                copyToClipboard(SettingsManager.getSocksPort().toString())
+                true
+            }
+            proxyPortPref?.onLongClick = {
+                promptEditCredential(
+                    titleRes = R.string.proxy_info_socks_port,
+                    initial = SettingsManager.getSocksPort().toString(),
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER,
+                ) { newValue ->
+                    val port = newValue.toIntOrNull()
+                    if (port == null || port !in 1..65535) {
+                        requireContext().toast(R.string.proxy_info_port_invalid)
+                        return@promptEditCredential
+                    }
+                    MmkvManager.encodeSettings(AppConfig.PREF_SOCKS_PORT, port.toString())
+                    refreshProxyCredentialSummaries()
+                }
+            }
+
+            proxyUserPref?.setOnPreferenceClickListener {
+                copyToClipboard(SettingsManager.getSocksUser())
+                true
+            }
+            proxyUserPref?.onLongClick = {
+                promptEditCredential(
+                    titleRes = R.string.proxy_info_username,
+                    initial = SettingsManager.getSocksUser(),
+                ) { newValue ->
+                    if (newValue.isBlank()) {
+                        requireContext().toast(R.string.proxy_info_value_required)
+                        return@promptEditCredential
+                    }
+                    MmkvManager.encodeSettings(AppConfig.PREF_SOCKS_AUTH_USER, newValue)
+                    refreshProxyCredentialSummaries()
+                }
+            }
+
+            proxyPassPref?.setOnPreferenceClickListener {
+                copyToClipboard(SettingsManager.getSocksPass())
+                true
+            }
+            proxyPassPref?.onLongClick = {
+                promptEditCredential(
+                    titleRes = R.string.proxy_info_password,
+                    initial = SettingsManager.getSocksPass(),
+                ) { newValue ->
+                    if (newValue.isBlank()) {
+                        requireContext().toast(R.string.proxy_info_value_required)
+                        return@promptEditCredential
+                    }
+                    MmkvManager.encodeSettings(AppConfig.PREF_SOCKS_AUTH_PASS, newValue)
+                    refreshProxyCredentialSummaries()
+                }
+            }
+
             useHevTun?.setOnPreferenceChangeListener { _, newValue ->
                 updateHevTunSettings(newValue as Boolean)
                 true
             }
+        }
+
+        private fun copyToClipboard(value: String) {
+            val ctx = requireContext()
+            Utils.setClipboard(ctx, value)
+            ctx.toast(R.string.proxy_info_copied)
+        }
+
+        /**
+         * Show a tiny AlertDialog with a single EditText to edit one of the
+         * proxy credential fields. Kept inline here because these fields
+         * don't share storage semantics with a regular EditTextPreference
+         * (the username/password are generated lazily on first read).
+         */
+        private fun promptEditCredential(
+            titleRes: Int,
+            initial: String,
+            inputType: Int = android.text.InputType.TYPE_CLASS_TEXT,
+            onAccept: (String) -> Unit,
+        ) {
+            val ctx = requireContext()
+            val edit = android.widget.EditText(ctx).apply {
+                setText(initial)
+                this.inputType = inputType
+                setSelection(initial.length)
+            }
+            val padding = (resources.displayMetrics.density * 16).toInt()
+            val container = android.widget.FrameLayout(ctx).apply {
+                setPadding(padding, padding / 2, padding, 0)
+                addView(edit)
+            }
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle(titleRes)
+                .setView(container)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    onAccept(edit.text.toString().trim())
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
 
         private fun initPreferenceSummaries() {
@@ -198,6 +307,30 @@ class SettingsActivity : BaseActivity() {
                     )
                 )
             }
+            updateProxyCredentials(value)
+        }
+
+        /**
+         * Toggle visibility of the Proxy-info rows under the mode selector.
+         * Shown only for "Proxy only", because VPN and Root modes don't
+         * expose the local SOCKS listener as something the user would point
+         * another app at.
+         */
+        private fun updateProxyCredentials(modeValue: String?) {
+            val isProxyOnly = modeValue != null && modeValue != VPN && modeValue != AppConfig.ROOT
+            proxyAddressPref?.isVisible = isProxyOnly
+            proxyPortPref?.isVisible = isProxyOnly
+            proxyUserPref?.isVisible = isProxyOnly
+            proxyPassPref?.isVisible = isProxyOnly
+            if (isProxyOnly) refreshProxyCredentialSummaries()
+        }
+
+        /** Refresh the summary text of each proxy-info row from MMKV. */
+        private fun refreshProxyCredentialSummaries() {
+            proxyAddressPref?.summary = AppConfig.LOOPBACK
+            proxyPortPref?.summary = SettingsManager.getSocksPort().toString()
+            proxyUserPref?.summary = SettingsManager.getSocksUser()
+            proxyPassPref?.summary = SettingsManager.getSocksPass()
         }
 
         private fun updateLocalDns(enabled: Boolean) {

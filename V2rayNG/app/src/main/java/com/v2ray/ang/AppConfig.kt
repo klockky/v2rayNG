@@ -75,6 +75,14 @@ object AppConfig {
     const val PREF_AUTO_REMOVE_INVALID_AFTER_TEST = "pref_auto_remove_invalid_after_test"
     const val PREF_AUTO_SORT_AFTER_TEST = "pref_auto_sort_after_test"
 
+    // Stable, per-install SOCKS5 credentials. Generated once on first use and
+    // persisted so the pair never changes across restarts. This closes the hole
+    // where another app on the device (e.g. a sideloaded spy module) could
+    // connect to the unauthenticated loopback SOCKS port, bypass per-app
+    // tunneling/work profile isolation and learn the outbound VPN IP.
+    const val PREF_SOCKS_AUTH_USER = "pref_socks_auth_user"
+    const val PREF_SOCKS_AUTH_PASS = "pref_socks_auth_pass"
+
     /** Cache keys. */
     const val CACHE_SUBSCRIPTION_ID = "cache_subscription_id"
 
@@ -187,7 +195,14 @@ object AppConfig {
 
     /** Give a good name to this, IDK*/
     const val VPN = "VPN"
+    const val PROXY_ONLY = "Proxy only"
+    const val ROOT = "Root"
     const val VPN_MTU = 1500
+
+    /** Tag of the dokodemo-door transparent-redirect inbound used in Root mode. */
+    const val TAG_REDIRECT = "redirect"
+    /** Offset added to the SOCKS port to derive the transparent-redirect port. */
+    const val PORT_REDIRECT_OFFSET = 2
 
     /** hev-sock5-tunnel read-write-timeout value */
     const val HEVTUN_RW_TIMEOUT = "300,60"

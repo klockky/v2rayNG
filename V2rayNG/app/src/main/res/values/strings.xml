@@ -398,7 +398,26 @@
     <string-array name="mode_entries">
         <item>VPN</item>
         <item>Proxy only</item>
+        <item>Root (transparent)</item>
     </string-array>
+
+    <string name="toast_root_required">Root access is required for Root mode</string>
+    <string name="toast_root_iptables_failed">Failed to install iptables rules</string>
+
+    <string name="title_proxy_info">Proxy connection info</string>
+    <string name="proxy_info_address">Address</string>
+    <string name="proxy_info_socks_port">SOCKS5 port</string>
+    <string name="proxy_info_http_port">HTTP port</string>
+    <string name="proxy_info_username">Username</string>
+    <string name="proxy_info_password">Password</string>
+    <string name="proxy_info_copy">Copy</string>
+    <string name="proxy_info_copy_all">Copy all</string>
+    <string name="proxy_info_copied">Copied to clipboard</string>
+    <string name="proxy_info_hint">Use these credentials in system proxy settings or in another app. They do not change between restarts.</string>
+    <string name="proxy_info_root_disabled">SOCKS inbound is disabled in Root mode. All traffic is transparently redirected by iptables.</string>
+    <string name="proxy_info_port_invalid">Port must be between 1 and 65535</string>
+    <string name="proxy_info_value_required">Value cannot be empty</string>
+    <string name="proxy_info_long_press_hint">Tap to copy, long-press to edit</string>
 
     <string-array name="ui_mode_night">
         <item>Follow system</item>

@@ -379,6 +379,21 @@ object V2rayConfigManager {
                 inbound1.listen = AppConfig.LOOPBACK
             }
             inbound1.port = socksPort
+
+            // Always require SOCKS5 password authentication on the local
+            // inbound. This closes a known bypass where any co-resident app
+            // (including sideloaded spy modules and apps in a work profile)
+            // can connect to the unauthenticated loopback SOCKS port and
+            // learn the outbound IP even when per-app split tunneling is
+            // configured to exclude them. The credentials are stable per
+            // install — see SettingsManager.getSocksUser/Pass.
+            val socksUser = SettingsManager.getSocksUser()
+            val socksPass = SettingsManager.getSocksPass()
+            inbound1.settings?.auth = "password"
+            inbound1.settings?.accounts = arrayListOf(
+                V2rayConfig.InboundBean.InSettingsBean.AccountBean(socksUser, socksPass)
+            )
+
             val fakedns = MmkvManager.decodeSettingsBool(AppConfig.PREF_FAKE_DNS_ENABLED) == true
             val sniffAllTlsAndHttp =
                 MmkvManager.decodeSettingsBool(AppConfig.PREF_SNIFFING_ENABLED, true) != false
@@ -392,7 +407,7 @@ object V2rayConfigManager {
                 inbound1.sniffing?.destOverride?.add("fakedns")
             }
 
-            if (!Utils.isXray()) {
+            if (!Utils.isXray() && !SettingsManager.isRootMode()) {
                 val inbound2 = JsonUtil.fromJson(JsonUtil.toJson(inbound1), V2rayConfig.InboundBean::class.java) ?: return false
                 inbound2.tag = EConfigType.HTTP.name.lowercase()
                 inbound2.port = SettingsManager.getHttpPort()
@@ -405,12 +420,58 @@ object V2rayConfigManager {
                 inboundTun?.settings?.mtu = SettingsManager.getVpnMtu()
                 inboundTun?.sniffing = inbound1.sniffing
             }
+
+            if (SettingsManager.isRootMode()) {
+                // Root mode has its own transparent-redirect data path and
+                // must not expose any SOCKS/HTTP listener: apps route through
+                // the kernel via iptables NAT REDIRECT directly into the
+                // dokodemo-door inbound below. We capture the sniffing config
+                // from the template's SOCKS inbound before dropping it so the
+                // redirect inbound keeps the same sniff behaviour.
+                val redirectSniffing = inbound1.sniffing?.let {
+                    V2rayConfig.InboundBean.SniffingBean(
+                        enabled = it.enabled,
+                        destOverride = ArrayList(it.destOverride),
+                        metadataOnly = it.metadataOnly,
+                        routeOnly = it.routeOnly
+                    )
+                }
+
+                v2rayConfig.inbounds.removeAll { it.protocol == "socks" || it.protocol == "http" }
+
+                // Transparent TCP inbound reached via iptables NAT REDIRECT
+                // from V2RayRootService. dokodemo-door with followRedirect
+                // reads the original destination from the SO_ORIGINAL_DST
+                // socket option set by netfilter, so the port is effectively
+                // unreachable by ordinary co-resident apps — they cannot set
+                // SO_ORIGINAL_DST without CAP_NET_ADMIN.
+                val redirect = V2rayConfig.InboundBean(
+                    tag = AppConfig.TAG_REDIRECT,
+                    port = getRedirectPort(socksPort),
+                    protocol = "dokodemo-door",
+                    listen = AppConfig.LOOPBACK,
+                    settings = V2rayConfig.InboundBean.InSettingsBean(
+                        network = "tcp",
+                        followRedirect = true,
+                        userLevel = AppConfig.DEFAULT_LEVEL
+                    ),
+                    sniffing = redirectSniffing
+                )
+                v2rayConfig.inbounds.add(redirect)
+            }
         } catch (e: Exception) {
             Log.e(AppConfig.TAG, "Failed to configure inbounds", e)
             return false
         }
         return true
     }
+
+    /**
+     * Transparent-redirect inbound port used by Root mode. Derived from the
+     * SOCKS port so there is a single source of truth.
+     */
+    fun getRedirectPort(socksPort: Int = SettingsManager.getSocksPort()): Int =
+        socksPort + AppConfig.PORT_REDIRECT_OFFSET
 
     /**
      * Configures the fake DNS settings if enabled.

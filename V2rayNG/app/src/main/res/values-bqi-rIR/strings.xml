@@ -394,6 +394,7 @@
     <string-array name="mode_entries">
         <item>VPN</item>
         <item>تینا پروکسی</item>
+        <item>Root (transparent)</item>
     </string-array>
 
     <string-array name="ui_mode_night">

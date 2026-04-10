@@ -296,6 +296,30 @@
             android:summary="%s"
             android:title="@string/title_mode" />
 
+        <com.v2ray.ang.ui.CopyablePreference
+            android:key="pref_proxy_address"
+            android:persistent="false"
+            android:selectable="true"
+            android:title="@string/proxy_info_address" />
+
+        <com.v2ray.ang.ui.CopyablePreference
+            android:key="pref_proxy_socks_port"
+            android:persistent="false"
+            android:selectable="true"
+            android:title="@string/proxy_info_socks_port" />
+
+        <com.v2ray.ang.ui.CopyablePreference
+            android:key="pref_proxy_user"
+            android:persistent="false"
+            android:selectable="true"
+            android:title="@string/proxy_info_username" />
+
+        <com.v2ray.ang.ui.CopyablePreference
+            android:key="pref_proxy_pass"
+            android:persistent="false"
+            android:selectable="true"
+            android:title="@string/proxy_info_password" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

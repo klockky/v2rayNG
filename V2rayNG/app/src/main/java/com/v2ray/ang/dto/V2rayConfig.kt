@@ -46,8 +46,18 @@ data class V2rayConfig(
             var userLevel: Int? = null,
             var name: String? = null,
             @SerializedName("MTU")
-            var mtu: Int? = null
-        )
+            var mtu: Int? = null,
+            // Populated when SOCKS5 password authentication is enabled.
+            var accounts: ArrayList<AccountBean>? = null,
+            // dokodemo-door transparent redirect inbound fields (used by Root mode).
+            var network: String? = null,
+            var followRedirect: Boolean? = null
+        ) {
+            data class AccountBean(
+                var user: String = "",
+                var pass: String = ""
+            )
+        }
 
         data class SniffingBean(
             var enabled: Boolean,

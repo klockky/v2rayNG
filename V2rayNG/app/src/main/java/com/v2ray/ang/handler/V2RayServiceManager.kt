@@ -15,6 +15,7 @@ import com.v2ray.ang.dto.ProfileItem
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.service.V2RayProxyOnlyService
+import com.v2ray.ang.service.V2RayRootService
 import com.v2ray.ang.service.V2RayVpnService
 import com.v2ray.ang.util.MessageUtil
 import com.v2ray.ang.util.Utils
@@ -127,13 +128,19 @@ object V2RayServiceManager {
             context.toast(R.string.toast_services_start)
         }
 
-        val isVpnMode = SettingsManager.isVpnMode()
-        val intent = if (isVpnMode) {
-            Log.i(AppConfig.TAG, "StartCore-Manager: Starting VPN service")
-            Intent(context.applicationContext, V2RayVpnService::class.java)
-        } else {
-            Log.i(AppConfig.TAG, "StartCore-Manager: Starting Proxy service")
-            Intent(context.applicationContext, V2RayProxyOnlyService::class.java)
+        val intent = when {
+            SettingsManager.isVpnMode() -> {
+                Log.i(AppConfig.TAG, "StartCore-Manager: Starting VPN service")
+                Intent(context.applicationContext, V2RayVpnService::class.java)
+            }
+            SettingsManager.isRootMode() -> {
+                Log.i(AppConfig.TAG, "StartCore-Manager: Starting Root service")
+                Intent(context.applicationContext, V2RayRootService::class.java)
+            }
+            else -> {
+                Log.i(AppConfig.TAG, "StartCore-Manager: Starting Proxy service")
+                Intent(context.applicationContext, V2RayProxyOnlyService::class.java)
+            }
         }
 
         try {

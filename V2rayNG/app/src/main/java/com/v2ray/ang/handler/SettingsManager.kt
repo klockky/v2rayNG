@@ -30,6 +30,7 @@ import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.Utils
 import java.io.File
 import java.io.FileOutputStream
+import java.security.SecureRandom
 import java.util.Collections
 import java.util.Locale
 
@@ -431,6 +432,45 @@ object SettingsManager {
     fun isVpnMode(): Boolean {
         val mode = MmkvManager.decodeSettingsString(AppConfig.PREF_MODE)
         return mode == null || mode == VPN
+    }
+
+    /**
+     * Check if Root (transparent iptables) mode is selected.
+     */
+    fun isRootMode(): Boolean {
+        return MmkvManager.decodeSettingsString(AppConfig.PREF_MODE) == AppConfig.ROOT
+    }
+
+    /**
+     * Returns the stable username used for local SOCKS5 authentication.
+     * The value is generated once with [SecureRandom] on first access and
+     * persisted, so the credentials are not rotated on every restart (which
+     * would otherwise force users to reconfigure system proxy clients).
+     */
+    fun getSocksUser(): String = ensureSocksCredential(AppConfig.PREF_SOCKS_AUTH_USER)
+
+    /**
+     * Returns the stable password used for local SOCKS5 authentication.
+     * Same lifetime semantics as [getSocksUser].
+     */
+    fun getSocksPass(): String = ensureSocksCredential(AppConfig.PREF_SOCKS_AUTH_PASS)
+
+    private fun ensureSocksCredential(key: String): String {
+        val existing = MmkvManager.decodeSettingsString(key)
+        if (!existing.isNullOrBlank()) return existing
+        val generated = generateCredential()
+        MmkvManager.encodeSettings(key, generated)
+        return generated
+    }
+
+    private fun generateCredential(): String {
+        // 18 url-safe characters is plenty; avoid `/` `+` `=` so the value is
+        // safe to splice into YAML/JSON without escaping.
+        val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        val random = SecureRandom()
+        return buildString(18) {
+            repeat(18) { append(alphabet[random.nextInt(alphabet.length)]) }
+        }
     }
 
     /**
