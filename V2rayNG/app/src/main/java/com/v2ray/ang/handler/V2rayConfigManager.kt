@@ -209,6 +209,7 @@ object V2rayConfigManager {
         if (MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCAL_DNS_ENABLED) == true) {
             getCustomLocalDns(v2rayConfig)
         }
+        getRootModeDns(v2rayConfig)
         if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) != true) {
             v2rayConfig.stats = null
             v2rayConfig.policy = null
@@ -268,6 +269,7 @@ object V2rayConfigManager {
         if (MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCAL_DNS_ENABLED)) {
             getCustomLocalDns(v2rayConfig)
         }
+        getRootModeDns(v2rayConfig)
         if (!MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED)) {
             v2rayConfig.stats = null
             v2rayConfig.policy = null
@@ -459,17 +461,45 @@ object V2rayConfigManager {
                 )
                 v2rayConfig.inbounds.add(redirect)
 
-                // NOTE: we intentionally do NOT create a UDP DNS inbound
-                // or a matching `-p udp --dport 53 -j REDIRECT` iptables
-                // rule. On modern Android many apps' DNS lookups are
-                // issued by netd/system uids, which breaks per-app owner
-                // matching: bypass apps would end up with DNS forced
-                // through the core, and without a dedicated `dns-out`
-                // outbound route their queries time out. Users who want
-                // encrypted DNS in Root mode should turn on Android
-                // Private DNS (Settings → Network → Private DNS), which
-                // uses DoT on TCP 853 and is caught naturally by the TCP
-                // REDIRECT above.
+                // UDP DNS transparent-redirect inbound. Without this, apps'
+                // DNS queries leak around the proxy: netd sends them to the
+                // ISP resolver directly, and in censored networks those
+                // responses are slow/blocked, producing the "Telegram takes
+                // several seconds before a message sends" symptom. Routing
+                // the inbound to `dns-out` hands it to xray's DNS module,
+                // which resolves via the configured remote DNS through the
+                // proxy — the same way VPN mode works.
+                //
+                // iptables NAT REDIRECT on UDP does NOT preserve the
+                // original destination via SO_ORIGINAL_DST (that only works
+                // for TCP), so `followRedirect` is useless here. We give
+                // dokodemo-door a placeholder address; xray's dns-out
+                // intercepts the query based on the routing rule below and
+                // uses `dns.servers` from getDns() instead of the literal
+                // address.
+                //
+                // Only wired up when per-app proxy is disabled — with a
+                // per-app list we cannot cleanly attribute netd's UDP/53
+                // packets back to the originating app uid, and tunneling
+                // every app's DNS through the proxy would break bypass
+                // intent. V2RayRootService mirrors the same condition on
+                // the iptables side.
+                val perAppEnabled = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false)
+                if (!perAppEnabled) {
+                    val dnsRedirect = V2rayConfig.InboundBean(
+                        tag = AppConfig.TAG_REDIRECT_DNS,
+                        port = getDnsRedirectPort(socksPort),
+                        protocol = "dokodemo-door",
+                        listen = AppConfig.LOOPBACK,
+                        settings = V2rayConfig.InboundBean.InSettingsBean(
+                            address = "1.1.1.1",
+                            port = 53,
+                            network = "udp",
+                            userLevel = AppConfig.DEFAULT_LEVEL
+                        )
+                    )
+                    v2rayConfig.inbounds.add(dnsRedirect)
+                }
             }
         } catch (e: Exception) {
             Log.e(AppConfig.TAG, "Failed to configure inbounds", e)
@@ -488,6 +518,14 @@ object V2rayConfigManager {
      */
     fun getRedirectPort(socksPort: Int = SettingsManager.getSocksPort()): Int =
         SettingsManager.getRuntimeRedirectPort() ?: (socksPort + AppConfig.PORT_REDIRECT_OFFSET)
+
+    /**
+     * UDP-DNS redirect inbound port used by Root mode. Prefers the runtime
+     * OS-allocated port picked at service start; falls back to a
+     * deterministic offset for unit tests / pre-service callers.
+     */
+    fun getDnsRedirectPort(socksPort: Int = SettingsManager.getSocksPort()): Int =
+        SettingsManager.getRuntimeDnsRedirectPort() ?: (socksPort + AppConfig.PORT_REDIRECT_DNS_OFFSET)
 
     /**
      * Configures the fake DNS settings if enabled.
@@ -653,6 +691,45 @@ object V2rayConfigManager {
             return false
         }
         return true
+    }
+
+    /**
+     * Wires up Root-mode DNS tunneling: ensures a `dns-out` outbound exists
+     * and routes the `redirect-dns` inbound (our UDP/53 dokodemo-door) to
+     * it. Without this, apps' DNS queries leak around the proxy via netd
+     * and — in censored networks — slow-respond or get hijacked, which is
+     * what users see as "Telegram takes several seconds to send a message"
+     * in Root mode. No-op outside Root mode, so it's safe to call
+     * unconditionally after getDns().
+     */
+    private fun getRootModeDns(v2rayConfig: V2rayConfig) {
+        if (!SettingsManager.isRootMode()) return
+        if (v2rayConfig.inbounds.none { it.tag == AppConfig.TAG_REDIRECT_DNS }) return
+
+        if (v2rayConfig.outbounds.none { it.protocol == "dns" && it.tag == "dns-out" }) {
+            v2rayConfig.outbounds.add(
+                OutboundBean(
+                    protocol = "dns",
+                    tag = "dns-out",
+                    settings = null,
+                    streamSettings = null,
+                    mux = null
+                )
+            )
+        }
+
+        // Route the UDP DNS inbound to dns-out *before* any user rulesets
+        // so it can't be accidentally diverted. xray's dns module will
+        // resolve via v2rayConfig.dns.servers (remoteDns/domesticDns split
+        // set up in getDns()), and the resulting upstream queries flow
+        // through the proxy outbound as normal TCP/UDP.
+        v2rayConfig.routing.rules.add(
+            0,
+            RulesBean(
+                inboundTag = arrayListOf(AppConfig.TAG_REDIRECT_DNS),
+                outboundTag = "dns-out"
+            )
+        )
     }
 
     /**

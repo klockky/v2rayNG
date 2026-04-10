@@ -119,6 +119,7 @@ class V2RayRootService : Service(), ServiceControl {
     private fun installIptablesRules(): Boolean {
         val selfUid = applicationInfo.uid
         val redirectPort = V2rayConfigManager.getRedirectPort()
+        val dnsRedirectPort = V2rayConfigManager.getDnsRedirectPort()
         val chain = IPTABLES_CHAIN
         val chain6 = IPTABLES_CHAIN_V6
 
@@ -157,17 +158,22 @@ class V2RayRootService : Service(), ServiceControl {
                 appendLine("iptables -t nat -A $chain -d $cidr -j RETURN")
             }
 
-            // Only TCP is redirected. UDP-53 DNS is intentionally NOT
-            // touched: on modern Android, DNS queries for many apps are
-            // proxied by netd/system uids, which our owner-based per-app
-            // rules cannot attribute to the originating app. Forcing them
-            // through the proxy broke bypass apps (their DNS would go
-            // through the core, which may or may not forward UDP cleanly).
-            // Users who want encrypted DNS should enable Android Private
-            // DNS (DoT over TCP 853) — that falls under the TCP REDIRECT
-            // below and tunnels through the proxy naturally.
+            // TCP is always redirected. UDP/53 (DNS) is also redirected
+            // when per-app proxy is disabled, so that DNS queries flow
+            // through xray's dns-out outbound instead of leaking to the
+            // ISP resolver via netd. Without this, apps like Telegram see
+            // a multi-second delay on every new connection in censored
+            // networks because DNS resolution is slow or hijacked.
+            //
+            // For per-app modes we keep the old "UDP/53 untouched"
+            // behaviour: netd runs as its own system uid and we cannot
+            // attribute DNS packets back to the originating app, so
+            // redirecting DNS there would either tunnel bypass apps' DNS
+            // (violating bypass intent) or tunnel non-selected apps' DNS
+            // (inconsistent with "proxy only selected").
             if (!perAppEnabled) {
                 appendLine("iptables -t nat -A $chain -p tcp -j REDIRECT --to-ports $redirectPort")
+                appendLine("iptables -t nat -A $chain -p udp --dport 53 -j REDIRECT --to-ports $dnsRedirectPort")
             } else if (bypassMode) {
                 // "Bypass selected" — let the listed apps skip the proxy,
                 // redirect everyone else's TCP.

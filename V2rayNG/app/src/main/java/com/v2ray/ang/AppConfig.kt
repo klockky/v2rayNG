@@ -205,8 +205,12 @@ object AppConfig {
 
     /** Tag of the dokodemo-door transparent-redirect inbound used in Root mode. */
     const val TAG_REDIRECT = "redirect"
+    /** Tag of the dokodemo-door UDP DNS redirect inbound used in Root mode. */
+    const val TAG_REDIRECT_DNS = "redirect-dns"
     /** Offset added to the SOCKS port to derive the transparent-redirect port. */
     const val PORT_REDIRECT_OFFSET = 2
+    /** Offset added to the SOCKS port to derive the UDP DNS redirect port. */
+    const val PORT_REDIRECT_DNS_OFFSET = 3
 
     /** hev-sock5-tunnel read-write-timeout value */
     const val HEVTUN_RW_TIMEOUT = "300,60"
