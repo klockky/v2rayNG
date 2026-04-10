@@ -441,17 +441,26 @@ object V2rayConfigManager {
 
                 v2rayConfig.inbounds.removeAll { it.protocol == "socks" || it.protocol == "http" }
 
+                // When tether sharing is enabled the inbounds need to
+                // accept packets that hit the AP gateway IP after iptables
+                // PREROUTING REDIRECT (REDIRECT rewrites dest to the
+                // ingress interface IP, not loopback), so we bind to all
+                // interfaces. The TCP redirect inbound is still safe with
+                // a wildcard bind because dokodemo-door's followRedirect
+                // requires SO_ORIGINAL_DST, which co-resident apps cannot
+                // set without CAP_NET_ADMIN.
+                val tetherSharing = SettingsManager.isRootTetherSharingEnabled()
+                val redirectListen = if (tetherSharing) AppConfig.ANY_HOST else AppConfig.LOOPBACK
+
                 // Transparent TCP inbound reached via iptables NAT REDIRECT
                 // from V2RayRootService. dokodemo-door with followRedirect
                 // reads the original destination from the SO_ORIGINAL_DST
-                // socket option set by netfilter, so the port is effectively
-                // unreachable by ordinary co-resident apps — they cannot set
-                // SO_ORIGINAL_DST without CAP_NET_ADMIN.
+                // socket option set by netfilter.
                 val redirect = V2rayConfig.InboundBean(
                     tag = AppConfig.TAG_REDIRECT,
                     port = getRedirectPort(socksPort),
                     protocol = "dokodemo-door",
-                    listen = AppConfig.LOOPBACK,
+                    listen = redirectListen,
                     settings = V2rayConfig.InboundBean.InSettingsBean(
                         network = "tcp",
                         followRedirect = true,
@@ -485,12 +494,19 @@ object V2rayConfigManager {
                 // intent. V2RayRootService mirrors the same condition on
                 // the iptables side.
                 val perAppEnabled = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false)
-                if (!perAppEnabled) {
+                // Create the DNS inbound when either:
+                //   * per-app proxy is off (phone's own DNS via OUTPUT
+                //     redirect), or
+                //   * tether sharing is on (tethered clients' DNS via
+                //     PREROUTING redirect — independent of per-app mode
+                //     because tethered clients have no app uid we could
+                //     match against).
+                if (!perAppEnabled || tetherSharing) {
                     val dnsRedirect = V2rayConfig.InboundBean(
                         tag = AppConfig.TAG_REDIRECT_DNS,
                         port = getDnsRedirectPort(socksPort),
                         protocol = "dokodemo-door",
-                        listen = AppConfig.LOOPBACK,
+                        listen = redirectListen,
                         settings = V2rayConfig.InboundBean.InSettingsBean(
                             address = "1.1.1.1",
                             port = 53,

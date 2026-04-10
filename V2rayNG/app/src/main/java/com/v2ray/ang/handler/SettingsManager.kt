@@ -549,6 +549,18 @@ object SettingsManager {
     }
 
     /**
+     * Whether Root mode should also forward Wi-Fi / USB tethered traffic
+     * through the proxy. When enabled, the dokodemo-door inbounds bind to
+     * 0.0.0.0 (instead of loopback) and an extra iptables PREROUTING chain
+     * REDIRECTs forwarded traffic into them. Off by default — enabling
+     * exposes the inbound listeners to the tether subnet, so users have to
+     * opt in.
+     */
+    fun isRootTetherSharingEnabled(): Boolean {
+        return isRootMode() && MmkvManager.decodeSettingsBool(AppConfig.PREF_ROOT_TETHER_SHARING, false)
+    }
+
+    /**
      * Returns the stable username used for local SOCKS5 authentication.
      * The value is generated once with [SecureRandom] on first access and
      * persisted, so the credentials are not rotated on every restart (which

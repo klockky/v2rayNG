@@ -56,6 +56,7 @@ object AppConfig {
     const val PREF_UI_MODE_NIGHT = "pref_ui_mode_night"
     const val PREF_PREFER_IPV6 = "pref_prefer_ipv6"
     const val PREF_PROXY_SHARING = "pref_proxy_sharing_enabled"
+    const val PREF_ROOT_TETHER_SHARING = "pref_root_tether_sharing"
     const val PREF_ALLOW_INSECURE = "pref_allow_insecure"
     const val PREF_SOCKS_PORT = "pref_socks_port"
     const val PREF_REMOTE_DNS = "pref_remote_dns"
@@ -157,6 +158,7 @@ object AppConfig {
     const val WIREGUARD_LOCAL_ADDRESS_V6 = "2606:4700:110:8f81:d551:a0:532e:a2b3/128"
     const val WIREGUARD_LOCAL_MTU = "1420"
     const val LOOPBACK = "127.0.0.1"
+    const val ANY_HOST = "0.0.0.0"
 
     /** Message constants for communication. */
     const val MSG_REGISTER_CLIENT = 1

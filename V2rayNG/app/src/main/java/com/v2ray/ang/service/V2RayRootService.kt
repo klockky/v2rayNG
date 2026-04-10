@@ -122,7 +122,13 @@ class V2RayRootService : Service(), ServiceControl {
         val dnsRedirectPort = V2rayConfigManager.getDnsRedirectPort()
         val chain = IPTABLES_CHAIN
         val chain6 = IPTABLES_CHAIN_V6
+        val chainUdp = IPTABLES_CHAIN_UDP
+        val chainPre = IPTABLES_CHAIN_PRE
+        val chainInput = IPTABLES_CHAIN_INPUT
+        val chainFwd = IPTABLES_CHAIN_FWD
+        val chainFwd6 = IPTABLES_CHAIN_FWD6
 
+        val tetherSharing = SettingsManager.isRootTetherSharingEnabled()
         val perAppEnabled = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false)
         val bypassMode = MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS, false)
         val selectedUids: List<Int> = if (perAppEnabled) {
@@ -134,17 +140,27 @@ class V2RayRootService : Service(), ServiceControl {
 
         Log.i(
             AppConfig.TAG,
-            "StartCore-Root: perAppEnabled=$perAppEnabled bypassMode=$bypassMode uids=$selectedUids",
+            "StartCore-Root: perAppEnabled=$perAppEnabled bypassMode=$bypassMode tetherSharing=$tetherSharing uids=$selectedUids",
         )
+
+        // Unconditional pre-flight purge. If the previous session crashed,
+        // was OOM-killed, or the user toggled tether sharing off between
+        // runs, stale chains may still be hooked in the kernel with
+        // now-invalid REDIRECT ports (we pick a fresh ephemeral port on
+        // every start). Flush every chain we might ever have installed
+        // before building fresh ones, so we never leave a tether-PRE
+        // REDIRECT pointing at a port that no longer has a listener.
+        val purge = RootShell.exec(buildPurgeScript())
+        if (!purge.ok) {
+            Log.w(
+                AppConfig.TAG,
+                "StartCore-Root: pre-flight iptables purge reported errors: ${purge.stderr}",
+            )
+        }
 
         // --- IPv4 (nat table, MUST succeed) ---
         val ipv4Script = buildString {
             appendLine("set -e")
-            // Best-effort cleanup of any leftover rules from a previous run.
-            appendLine("iptables -t nat -D OUTPUT -j $chain 2>/dev/null || true")
-            appendLine("iptables -t nat -F $chain 2>/dev/null || true")
-            appendLine("iptables -t nat -X $chain 2>/dev/null || true")
-
             appendLine("iptables -t nat -N $chain")
 
             // Don't loop our own traffic.
@@ -212,10 +228,6 @@ class V2RayRootService : Service(), ServiceControl {
         // TCP gets `--reject-with tcp-reset` so the stack aborts instantly;
         // everything else gets the default icmp6-port-unreachable.
         val ipv6Script = buildString {
-            appendLine("ip6tables -D OUTPUT -j $chain6 2>/dev/null || true")
-            appendLine("ip6tables -F $chain6 2>/dev/null || true")
-            appendLine("ip6tables -X $chain6 2>/dev/null || true")
-
             appendLine("ip6tables -N $chain6 || exit 1")
 
             appendLine("ip6tables -A $chain6 -m owner --uid-owner $selfUid -j RETURN")
@@ -261,6 +273,190 @@ class V2RayRootService : Service(), ServiceControl {
             Log.i(AppConfig.TAG, "StartCore-Root: ip6tables (v6) rules installed")
         }
 
+        // --- IPv4 UDP leak block (filter table, MUST succeed) ---
+        // The nat-table REDIRECT only touches TCP, which means Chrome /
+        // Google services happily fall back to QUIC over UDP/443 and
+        // reach the internet with the real source IP. WebRTC, gQUIC,
+        // MASQUE and similar UDP transports have the same problem. We
+        // REJECT every UDP flow except DNS (already caught by the
+        // UDP/53 REDIRECT above) and loopback / LAN traffic, so apps
+        // instantly fall back to their TCP transport — which is then
+        // picked up by the nat REDIRECT as usual. Without this, the
+        // user sees their real IP on `myip` / Google search.
+        val ipv4UdpScript = buildString {
+            appendLine("set -e")
+            appendLine("iptables -N $chainUdp")
+
+            // Xray's own outbound sockets (may include UDP to the
+            // proxy server — e.g. QUIC upstream) must escape the
+            // filter.
+            appendLine("iptables -A $chainUdp -m owner --uid-owner $selfUid -j RETURN")
+            appendLine("iptables -A $chainUdp -o lo -j RETURN")
+            for (cidr in LAN_BYPASS_V4) {
+                appendLine("iptables -A $chainUdp -d $cidr -j RETURN")
+            }
+            // DNS was already REDIRECTed in nat (when applicable) and
+            // then rewritten to loopback, so it would already have been
+            // RETURNed by the `-o lo` rule above. But apps that didn't
+            // hit the REDIRECT (e.g. per-app modes) still need UDP/53
+            // to reach the system resolver — let it through explicitly.
+            appendLine("iptables -A $chainUdp -p udp --dport 53 -j RETURN")
+
+            if (!perAppEnabled) {
+                appendLine("iptables -A $chainUdp -p udp -j REJECT --reject-with icmp-port-unreachable")
+            } else if (bypassMode) {
+                // "Bypass selected" — let the listed apps' UDP escape,
+                // block everyone else.
+                for (uid in selectedUids) {
+                    appendLine("iptables -A $chainUdp -m owner --uid-owner $uid -j RETURN")
+                }
+                appendLine("iptables -A $chainUdp -p udp -j REJECT --reject-with icmp-port-unreachable")
+            } else {
+                // "Proxy only selected" — block UDP for those uids so
+                // their traffic can't leak around the TCP-only REDIRECT.
+                for (uid in selectedUids) {
+                    appendLine(
+                        "iptables -A $chainUdp -p udp -m owner --uid-owner $uid -j REJECT --reject-with icmp-port-unreachable"
+                    )
+                }
+            }
+
+            appendLine("iptables -I OUTPUT -j $chainUdp")
+        }
+        val ipv4Udp = RootShell.exec(ipv4UdpScript)
+        if (!ipv4Udp.ok) {
+            Log.e(
+                AppConfig.TAG,
+                "StartCore-Root: UDP leak block install failed: ${ipv4Udp.stderr}",
+            )
+            return false
+        }
+        Log.i(AppConfig.TAG, "StartCore-Root: UDP leak block installed")
+
+        // --- Tether sharing (best effort) ---
+        // When the user opts in, also redirect TCP and UDP/53 from
+        // tethered / forwarded clients into the same dokodemo-door
+        // inbounds. PREROUTING is the right hook because it sees packets
+        // before the routing decision; iptables NAT REDIRECT rewrites the
+        // destination to the AP gateway IP, where the inbounds are bound
+        // because root-mode tether sharing flips the listen address to
+        // 0.0.0.0 in V2rayConfigManager.
+        if (tetherSharing) {
+            val preScript = buildString {
+                appendLine("set -e")
+                appendLine("iptables -t nat -N $chainPre")
+
+                // Skip traffic coming from loopback.
+                appendLine("iptables -t nat -A $chainPre -i lo -j RETURN")
+
+                // DNS MUST be redirected BEFORE the LAN bypass below.
+                // Tethered clients receive the phone's hotspot IP as
+                // their DNS server via DHCP (e.g. 192.168.43.1), so
+                // their DNS queries are destined to a local RFC1918
+                // address. If LAN_BYPASS_V4 RETURNs first, DNS lands in
+                // Android's built-in dnsmasq and never touches the
+                // proxy — which is exactly the "tether sharing doesn't
+                // work" symptom. Forcing UDP/53 through REDIRECT here
+                // routes the query into our dokodemo-door DNS inbound
+                // and then through xray's dns-out outbound.
+                appendLine("iptables -t nat -A $chainPre -p udp --dport 53 -j REDIRECT --to-ports $dnsRedirectPort")
+
+                // Skip LAN / multicast / link-local destinations so
+                // intra-hotspot services (ARP, mDNS, hotspot gateway
+                // itself for non-DNS traffic) keep working. Note that
+                // `-m addrtype` was intentionally dropped: the module
+                // is not always built into stock Android kernels and
+                // `set -e` would otherwise abort the whole install.
+                for (cidr in LAN_BYPASS_V4) {
+                    appendLine("iptables -t nat -A $chainPre -d $cidr -j RETURN")
+                }
+                appendLine("iptables -t nat -A $chainPre -p tcp -j REDIRECT --to-ports $redirectPort")
+
+                appendLine("iptables -t nat -I PREROUTING -j $chainPre")
+            }
+            val pre = RootShell.exec(preScript)
+            if (!pre.ok) {
+                Log.w(
+                    AppConfig.TAG,
+                    "StartCore-Root: tether PREROUTING install failed: ${pre.stderr}",
+                )
+            } else {
+                Log.i(AppConfig.TAG, "StartCore-Root: tether PREROUTING rules installed")
+            }
+
+            // Some Android builds leave the filter INPUT chain with
+            // bw_INPUT / fw_INPUT sub-chains that quietly DROP traffic
+            // targeted at non-loopback high ports. After REDIRECT the
+            // packet is destined to the AP-interface IP on our inbound
+            // port, so explicitly ACCEPT it to bypass those restrictions
+            // — best-effort, unhooked on stop.
+            val inputScript = buildString {
+                appendLine("iptables -N $chainInput || exit 1")
+                appendLine("iptables -A $chainInput -p tcp --dport $redirectPort -j ACCEPT")
+                appendLine("iptables -A $chainInput -p udp --dport $dnsRedirectPort -j ACCEPT")
+                appendLine("iptables -I INPUT -j $chainInput")
+            }
+            val inp = RootShell.exec(inputScript)
+            if (!inp.ok) {
+                Log.w(
+                    AppConfig.TAG,
+                    "StartCore-Root: tether INPUT accept failed: ${inp.stderr}",
+                )
+            } else {
+                Log.i(AppConfig.TAG, "StartCore-Root: tether INPUT accept installed")
+            }
+
+            // Same QUIC/WebRTC leak fix as on the phone itself, but
+            // applied to forwarded packets from tethered clients. After
+            // the PREROUTING DNS REDIRECT the packet is delivered
+            // locally and no longer traverses FORWARD; TCP is likewise
+            // consumed by the TCP REDIRECT in PREROUTING. Everything
+            // that still reaches FORWARD is UDP-other-than-DNS, which
+            // we cannot proxy — so we REJECT it to force tethered
+            // clients to retry over TCP (which *is* proxied).
+            val fwd4Script = buildString {
+                appendLine("iptables -N $chainFwd || exit 1")
+                appendLine("iptables -A $chainFwd -o lo -j RETURN")
+                for (cidr in LAN_BYPASS_V4) {
+                    appendLine("iptables -A $chainFwd -d $cidr -j RETURN")
+                }
+                appendLine("iptables -A $chainFwd -p udp --dport 53 -j RETURN")
+                appendLine("iptables -A $chainFwd -p udp -j REJECT --reject-with icmp-port-unreachable")
+                appendLine("iptables -I FORWARD -j $chainFwd")
+            }
+            val fwd4 = RootShell.exec(fwd4Script)
+            if (!fwd4.ok) {
+                Log.w(
+                    AppConfig.TAG,
+                    "StartCore-Root: tether FORWARD v4 UDP reject failed: ${fwd4.stderr}",
+                )
+            } else {
+                Log.i(AppConfig.TAG, "StartCore-Root: tether FORWARD v4 UDP reject installed")
+            }
+
+            // IPv6 has no NAT66 path, so we cannot transparently proxy
+            // forwarded v6 traffic. To prevent tethered clients from
+            // leaking via Happy Eyeballs we reject forwarded v6 outright.
+            // Scoped to a dedicated chain hooked into FORWARD only when
+            // tether sharing is on, so it does not affect ordinary
+            // (non-shared) tethering when the feature is disabled.
+            val fwd6Script = buildString {
+                appendLine("ip6tables -N $chainFwd6 || exit 1")
+                appendLine("ip6tables -A $chainFwd6 -p tcp -j REJECT --reject-with tcp-reset")
+                appendLine("ip6tables -A $chainFwd6 -j REJECT")
+                appendLine("ip6tables -I FORWARD -j $chainFwd6")
+            }
+            val fwd6 = RootShell.exec(fwd6Script)
+            if (!fwd6.ok) {
+                Log.w(
+                    AppConfig.TAG,
+                    "StartCore-Root: tether FORWARD v6 reject failed: ${fwd6.stderr}",
+                )
+            } else {
+                Log.i(AppConfig.TAG, "StartCore-Root: tether FORWARD v6 reject installed")
+            }
+        }
+
         return true
     }
 
@@ -284,29 +480,76 @@ class V2RayRootService : Service(), ServiceControl {
     }
 
     private fun removeIptablesRules() {
-        if (!rulesInstalled) return
-        val chain = IPTABLES_CHAIN
-        val chain6 = IPTABLES_CHAIN_V6
-        val script = buildString {
-            // IPv4
-            appendLine("iptables -t nat -D OUTPUT -j $chain 2>/dev/null || true")
-            appendLine("iptables -t nat -F $chain 2>/dev/null || true")
-            appendLine("iptables -t nat -X $chain 2>/dev/null || true")
-            // IPv6 (no-op if ip6tables or chain is missing)
-            appendLine("ip6tables -D OUTPUT -j $chain6 2>/dev/null || true")
-            appendLine("ip6tables -F $chain6 2>/dev/null || true")
-            appendLine("ip6tables -X $chain6 2>/dev/null || true")
-        }
-        val result = RootShell.exec(script)
+        // No rulesInstalled guard: every step of the purge script is
+        // `-D ... || true` so it is idempotent, and running it
+        // unconditionally lets us clean up even when install() aborted
+        // mid-script. The same script is also used as a pre-flight purge
+        // at start so leftover chains from a crash or OOM-kill of the
+        // previous session are guaranteed to be removed.
+        val result = RootShell.exec(buildPurgeScript())
         if (!result.ok) {
             Log.w(AppConfig.TAG, "StartCore-Root: iptables cleanup reported errors: ${result.stderr}")
         }
         rulesInstalled = false
     }
 
+    /**
+     * Shell script that unhooks and deletes every iptables / ip6tables
+     * chain this service may ever have installed: the OUTPUT NAT chains
+     * (both v4 and v6), the tether PREROUTING/INPUT chains (v4), and the
+     * tether FORWARD reject chain (v6). Every step is a silent no-op if
+     * the chain or hook isn't present, so the script is safe to run from
+     * both stop and pre-start paths without any "was it installed?"
+     * bookkeeping.
+     */
+    private fun buildPurgeScript(): String {
+        val chain = IPTABLES_CHAIN
+        val chain6 = IPTABLES_CHAIN_V6
+        val chainUdp = IPTABLES_CHAIN_UDP
+        val chainPre = IPTABLES_CHAIN_PRE
+        val chainInput = IPTABLES_CHAIN_INPUT
+        val chainFwd = IPTABLES_CHAIN_FWD
+        val chainFwd6 = IPTABLES_CHAIN_FWD6
+        return buildString {
+            // IPv4 nat OUTPUT
+            appendLine("iptables -t nat -D OUTPUT -j $chain 2>/dev/null || true")
+            appendLine("iptables -t nat -F $chain 2>/dev/null || true")
+            appendLine("iptables -t nat -X $chain 2>/dev/null || true")
+            // IPv4 nat PREROUTING (tether sharing)
+            appendLine("iptables -t nat -D PREROUTING -j $chainPre 2>/dev/null || true")
+            appendLine("iptables -t nat -F $chainPre 2>/dev/null || true")
+            appendLine("iptables -t nat -X $chainPre 2>/dev/null || true")
+            // IPv4 filter OUTPUT (UDP leak block)
+            appendLine("iptables -D OUTPUT -j $chainUdp 2>/dev/null || true")
+            appendLine("iptables -F $chainUdp 2>/dev/null || true")
+            appendLine("iptables -X $chainUdp 2>/dev/null || true")
+            // IPv4 filter INPUT accept chain (tether sharing)
+            appendLine("iptables -D INPUT -j $chainInput 2>/dev/null || true")
+            appendLine("iptables -F $chainInput 2>/dev/null || true")
+            appendLine("iptables -X $chainInput 2>/dev/null || true")
+            // IPv4 filter FORWARD reject chain (tether sharing)
+            appendLine("iptables -D FORWARD -j $chainFwd 2>/dev/null || true")
+            appendLine("iptables -F $chainFwd 2>/dev/null || true")
+            appendLine("iptables -X $chainFwd 2>/dev/null || true")
+            // IPv6 filter OUTPUT
+            appendLine("ip6tables -D OUTPUT -j $chain6 2>/dev/null || true")
+            appendLine("ip6tables -F $chain6 2>/dev/null || true")
+            appendLine("ip6tables -X $chain6 2>/dev/null || true")
+            // IPv6 filter FORWARD (tether sharing)
+            appendLine("ip6tables -D FORWARD -j $chainFwd6 2>/dev/null || true")
+            appendLine("ip6tables -F $chainFwd6 2>/dev/null || true")
+            appendLine("ip6tables -X $chainFwd6 2>/dev/null || true")
+        }
+    }
+
     companion object {
         private const val IPTABLES_CHAIN = "V2RAYNG_OUT"
         private const val IPTABLES_CHAIN_V6 = "V2RAYNG_OUT6"
+        private const val IPTABLES_CHAIN_UDP = "V2RAYNG_UDP"
+        private const val IPTABLES_CHAIN_PRE = "V2RAYNG_PRE"
+        private const val IPTABLES_CHAIN_INPUT = "V2RAYNG_IN"
+        private const val IPTABLES_CHAIN_FWD = "V2RAYNG_FWD"
+        private const val IPTABLES_CHAIN_FWD6 = "V2RAYNG_FWD6"
 
         private val LAN_BYPASS_V4 = listOf(
             "0.0.0.0/8",

@@ -217,6 +217,9 @@
     <string name="summary_pref_proxy_sharing_enabled">Other devices can connect to proxy by your IP address through local proxy. Only enable in trusted networks to avoid unauthorized connections</string>
     <string name="toast_warning_pref_proxysharing_short">Allow connections from the LAN. Make sure you are in a trusted network</string>
 
+    <string name="title_pref_root_tether_sharing">Share VPN with tethered clients (Root)</string>
+    <string name="summary_pref_root_tether_sharing">In Root mode, also forward Wi-Fi / USB tethered clients\' traffic through the proxy. Inbounds bind to all interfaces while enabled</string>
+
     <string name="title_pref_allow_insecure">allowInsecure</string>
     <string name="summary_pref_allow_insecure">When TLS is selected, allow insecure connections by default</string>
 
