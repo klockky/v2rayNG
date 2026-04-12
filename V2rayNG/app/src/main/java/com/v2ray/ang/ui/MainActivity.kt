@@ -33,6 +33,7 @@ import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.V2RayServiceManager
+import com.v2ray.ang.util.RootShell
 import com.v2ray.ang.util.Utils
 import com.v2ray.ang.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +95,7 @@ class MainActivity : HelperBaseActivity(), NavigationView.OnNavigationItemSelect
         })
 
         binding.fab.setOnClickListener { handleFabAction() }
+        binding.fabHotspot.setOnClickListener { handleHotspotToggle() }
         binding.layoutTest.setOnClickListener { handleLayoutTestClick() }
 
         setupGroupTab()
@@ -202,6 +204,95 @@ class MainActivity : HelperBaseActivity(), NavigationView.OnNavigationItemSelect
 
     override fun onResume() {
         super.onResume()
+        refreshHotspotButton()
+    }
+
+    /**
+     * Local toggle state for the mini hotspot FAB. We don't try to reconcile
+     * with the actual SoftAp state because querying it reliably across
+     * vendor builds is fiddly — we just flip on click and reflect the
+     * last-known state visually.
+     */
+    private var hotspotOn: Boolean = false
+
+    /**
+     * Show the mini FAB only when the user has explicitly opted into tether
+     * sharing in settings. When the pref is off, the VPN isn't actually
+     * forwarded to tethered clients (inbounds bind to loopback), so toggling
+     * the hotspot would expose bare LAN traffic — hide the button entirely.
+     */
+    private fun refreshHotspotButton() {
+        val enabled = SettingsManager.isRootTetherSharingEnabled()
+        binding.fabHotspot.isVisible = enabled
+        if (enabled) applyHotspotButtonState()
+    }
+
+    private fun applyHotspotButtonState() {
+        val tint = if (hotspotOn) R.color.color_fab_active else R.color.color_fab_inactive
+        binding.fabHotspot.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, tint))
+    }
+
+    private fun handleHotspotToggle() {
+        if (!SettingsManager.isRootTetherSharingEnabled()) {
+            toast(R.string.title_pref_root_tether_sharing)
+            return
+        }
+        val turningOn = !hotspotOn
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { toggleHotspot(turningOn) }
+            if (result.first) {
+                hotspotOn = turningOn
+                applyHotspotButtonState()
+                toast(if (turningOn) R.string.toast_hotspot_started else R.string.toast_hotspot_stopped)
+            } else {
+                toastError(getString(R.string.toast_hotspot_failed) + ": " + result.second)
+            }
+        }
+    }
+
+    /**
+     * Start / stop the system Wi-Fi hotspot via root. We try multiple command
+     * forms in sequence — the exact syntax of `cmd tethering` drifted between
+     * Android versions and vendor builds, so we keep probing until one
+     * reports success. Returns (ok, diagnostic-message). The diagnostic is
+     * shown in a toast on failure so the user can see which path failed.
+     *
+     * The usual winner on Pixel / Android 14–16 is
+     *   `cmd -w tethering start-tethering --wifi`
+     * which matches how the Settings app drives SoftAp internally.
+     */
+    private fun toggleHotspot(on: Boolean): Pair<Boolean, String> {
+        val attempts: List<String> = if (on) {
+            listOf(
+                "cmd -w tethering start-tethering --wifi",
+                "cmd tethering start-tethering --wifi",
+                "cmd -w tethering start-tethering wifi",
+                "cmd tethering start-tethering wifi",
+                "cmd tethering start-tethering 0",
+            )
+        } else {
+            listOf(
+                "cmd -w tethering stop-tethering --wifi",
+                "cmd tethering stop-tethering --wifi",
+                "cmd -w tethering stop-tethering wifi",
+                "cmd tethering stop-tethering wifi",
+                "cmd tethering stop-tethering 0",
+            )
+        }
+        val diagnostics = StringBuilder()
+        for (cmd in attempts) {
+            val res = RootShell.exec(cmd)
+            val combined = (res.stdout + res.stderr).trim()
+            val looksBad = combined.contains("Unknown command", ignoreCase = true) ||
+                combined.contains("Error:", ignoreCase = true) ||
+                combined.contains("Invalid", ignoreCase = true)
+            Log.i(AppConfig.TAG, "Hotspot '$cmd' -> exit=${res.exitCode} out=${combined.take(200)}")
+            if (res.ok && !looksBad) {
+                return true to combined.take(120)
+            }
+            diagnostics.append(cmd).append(" → ").append(combined.take(120)).append(" | ")
+        }
+        return false to diagnostics.toString().take(300)
     }
 
     override fun onPause() {

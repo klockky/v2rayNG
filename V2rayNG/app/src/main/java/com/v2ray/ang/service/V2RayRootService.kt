@@ -36,6 +36,16 @@ class V2RayRootService : Service(), ServiceControl {
 
     private var rulesInstalled: Boolean = false
 
+    /**
+     * Previous value of `settings global tether_offload_disabled` before we
+     * forced it off for this session. `null` means we never touched it (either
+     * tether sharing is disabled, or the setting was already 1, or the probe
+     * failed). On stop we restore whatever was there before — we don't want
+     * to permanently disable BPF tether offload on the user's device.
+     */
+    private var previousTetherOffloadDisabled: String? = null
+    private var tetherOffloadOverridden: Boolean = false
+
     override fun onCreate() {
         super.onCreate()
         Log.i(AppConfig.TAG, "StartCore-Root: Service created")
@@ -142,6 +152,30 @@ class V2RayRootService : Service(), ServiceControl {
             AppConfig.TAG,
             "StartCore-Root: perAppEnabled=$perAppEnabled bypassMode=$bypassMode tetherSharing=$tetherSharing uids=$selectedUids",
         )
+
+        // Opt-in hard reset of every built-in chain. Gated on the settings
+        // toggle because it also unhooks Android's own bw_*/fw_*/tetherctrl_*
+        // chains in the flushed tables until the next reboot. Users enable
+        // this when a prior session or another VPN app left stale rules that
+        // interfere with the transparent-redirect path.
+        if (SettingsManager.isRootHardFlushIptablesEnabled()) {
+            val flushAll = RootShell.exec(
+                buildString {
+                    appendLine("iptables -F 2>/dev/null || true")
+                    appendLine("iptables -t nat -F 2>/dev/null || true")
+                    appendLine("ip6tables -F 2>/dev/null || true")
+                    appendLine("ip6tables -t nat -F 2>/dev/null || true")
+                }
+            )
+            if (!flushAll.ok) {
+                Log.w(
+                    AppConfig.TAG,
+                    "StartCore-Root: global iptables flush reported errors: ${flushAll.stderr}",
+                )
+            } else {
+                Log.i(AppConfig.TAG, "StartCore-Root: global iptables flush done")
+            }
+        }
 
         // Unconditional pre-flight purge. If the previous session crashed,
         // was OOM-killed, or the user toggled tether sharing off between
@@ -342,6 +376,27 @@ class V2RayRootService : Service(), ServiceControl {
         // because root-mode tether sharing flips the listen address to
         // 0.0.0.0 in V2rayConfigManager.
         if (tetherSharing) {
+            // Pixel 6+/Android 12+ forwards tethered TCP via a BPF program
+            // that bypasses netfilter entirely, so our PREROUTING REDIRECT
+            // and FORWARD rules never see established flows. Turn offload
+            // off for the duration of the session and restore the previous
+            // value in removeIptablesRules(). Also force net.ipv4.ip_forward
+            // on and re-arm netd's ipfwd controller so the freshly-installed
+            // chains actually take effect. All best-effort.
+            disableTetherOffload()
+            val fwdFix = RootShell.exec(
+                buildString {
+                    appendLine("echo 1 > /proc/sys/net/ipv4/ip_forward 2>/dev/null || true")
+                    appendLine("ndc ipfwd enable v2rayng 2>/dev/null || true")
+                }
+            )
+            if (!fwdFix.ok) {
+                Log.w(
+                    AppConfig.TAG,
+                    "StartCore-Root: ip_forward/ndc nudge reported errors: ${fwdFix.stderr}",
+                )
+            }
+
             val preScript = buildString {
                 appendLine("set -e")
                 appendLine("iptables -t nat -N $chainPre")
@@ -491,6 +546,52 @@ class V2RayRootService : Service(), ServiceControl {
             Log.w(AppConfig.TAG, "StartCore-Root: iptables cleanup reported errors: ${result.stderr}")
         }
         rulesInstalled = false
+        restoreTetherOffload()
+    }
+
+    /**
+     * Probe `settings global tether_offload_disabled`, remember the prior
+     * value, and set it to 1 so Android's BPF tether-offload path stops
+     * bypassing our netfilter rules. Pixels on Android 12+ offload forwarded
+     * TCP in BPF before it reaches nat/PREROUTING, which is exactly why
+     * tethered clients get no proxy — and often no internet at all, once our
+     * FORWARD UDP reject kicks in without a matching TCP REDIRECT ever
+     * firing.
+     */
+    private fun disableTetherOffload() {
+        val probe = RootShell.exec("settings get global tether_offload_disabled")
+        val prev = probe.stdout.trim()
+        previousTetherOffloadDisabled = if (probe.ok && prev.isNotEmpty() && prev != "null") prev else null
+        val set = RootShell.exec("settings put global tether_offload_disabled 1")
+        if (!set.ok) {
+            Log.w(
+                AppConfig.TAG,
+                "StartCore-Root: could not disable tether offload: ${set.stderr}",
+            )
+            return
+        }
+        tetherOffloadOverridden = true
+        Log.i(
+            AppConfig.TAG,
+            "StartCore-Root: tether offload disabled (prev=${previousTetherOffloadDisabled ?: "unset"})",
+        )
+    }
+
+    private fun restoreTetherOffload() {
+        if (!tetherOffloadOverridden) return
+        val cmd = when (val prev = previousTetherOffloadDisabled) {
+            null -> "settings delete global tether_offload_disabled"
+            else -> "settings put global tether_offload_disabled $prev"
+        }
+        val res = RootShell.exec(cmd)
+        if (!res.ok) {
+            Log.w(
+                AppConfig.TAG,
+                "StartCore-Root: could not restore tether offload: ${res.stderr}",
+            )
+        }
+        tetherOffloadOverridden = false
+        previousTetherOffloadDisabled = null
     }
 
     /**

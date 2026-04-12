@@ -98,6 +98,21 @@
                     android:layout_marginEnd="@dimen/padding_spacing_dp16">
 
                     <com.google.android.material.floatingactionbutton.FloatingActionButton
+                        android:id="@+id/fab_hotspot"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom|end"
+                        android:layout_marginBottom="@dimen/view_height_dp120"
+                        android:clickable="true"
+                        android:contentDescription="@string/title_pref_root_tether_sharing"
+                        android:focusable="true"
+                        android:src="@drawable/ic_hotspot_24dp"
+                        android:visibility="gone"
+                        app:fabSize="mini"
+                        app:tint="@color/colorWhite"
+                        app:useCompatPadding="true" />
+
+                    <com.google.android.material.floatingactionbutton.FloatingActionButton
                         android:id="@+id/fab"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"

@@ -219,6 +219,11 @@
 
     <string name="title_pref_root_tether_sharing">Share VPN with tethered clients (Root)</string>
     <string name="summary_pref_root_tether_sharing">In Root mode, also forward Wi-Fi / USB tethered clients\' traffic through the proxy. Inbounds bind to all interfaces while enabled</string>
+    <string name="toast_hotspot_started">Hotspot started</string>
+    <string name="toast_hotspot_stopped">Hotspot stopped</string>
+    <string name="toast_hotspot_failed">Hotspot toggle failed — check root</string>
+    <string name="title_pref_root_hard_flush_iptables">Hard-flush iptables on every start (Root)</string>
+    <string name="summary_pref_root_hard_flush_iptables">Run iptables -F and iptables -t nat -F (v4 + v6) before installing rules. Clears stale state from other VPN apps but also removes Android\'s own firewall/tether hooks until the next reboot</string>
 
     <string name="title_pref_allow_insecure">allowInsecure</string>
     <string name="summary_pref_allow_insecure">When TLS is selected, allow insecure connections by default</string>

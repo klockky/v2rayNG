@@ -561,6 +561,18 @@ object SettingsManager {
     }
 
     /**
+     * Opt-in "nuke iptables on every start" toggle. When enabled, Root mode
+     * flushes every built-in chain (filter + nat, v4 + v6) before installing
+     * its own chains. Useful if stale rules from prior sessions or other VPN
+     * apps interfere with the transparent-redirect path; the trade-off is
+     * that Android bw_ / fw_ / tetherctrl_ hooks are also removed until
+     * the next reboot.
+     */
+    fun isRootHardFlushIptablesEnabled(): Boolean {
+        return isRootMode() && MmkvManager.decodeSettingsBool(AppConfig.PREF_ROOT_HARD_FLUSH_IPTABLES, false)
+    }
+
+    /**
      * Returns the stable username used for local SOCKS5 authentication.
      * The value is generated once with [SecureRandom] on first access and
      * persisted, so the credentials are not rotated on every restart (which

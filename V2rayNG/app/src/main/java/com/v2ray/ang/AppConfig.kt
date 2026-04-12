@@ -57,6 +57,7 @@ object AppConfig {
     const val PREF_PREFER_IPV6 = "pref_prefer_ipv6"
     const val PREF_PROXY_SHARING = "pref_proxy_sharing_enabled"
     const val PREF_ROOT_TETHER_SHARING = "pref_root_tether_sharing"
+    const val PREF_ROOT_HARD_FLUSH_IPTABLES = "pref_root_hard_flush_iptables"
     const val PREF_ALLOW_INSECURE = "pref_allow_insecure"
     const val PREF_SOCKS_PORT = "pref_socks_port"
     const val PREF_REMOTE_DNS = "pref_remote_dns"
