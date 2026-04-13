@@ -84,6 +84,11 @@ object AppConfig {
     // tunneling/work profile isolation and learn the outbound VPN IP.
     const val PREF_SOCKS_AUTH_USER = "pref_socks_auth_user"
     const val PREF_SOCKS_AUTH_PASS = "pref_socks_auth_pass"
+    // Master switch for the password-protected SOCKS inbound. Default on
+    // (security). Exposed as an escape hatch for debugging — if disabled,
+    // the local SOCKS inbound reverts to "noauth" and hev-socks5-tunnel
+    // connects without credentials, same as upstream v2rayNG.
+    const val PREF_SOCKS_AUTH_ENABLED = "pref_socks_auth_enabled"
     // When enabled and running in VPN mode, a fresh random SOCKS port is
     // picked at every service start so that a co-resident profiler can't
     // rely on 10808 being present.

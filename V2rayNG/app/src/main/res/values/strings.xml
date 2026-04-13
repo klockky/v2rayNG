@@ -232,6 +232,8 @@
     <string name="summary_pref_socks_port">Local proxy port</string>
     <string name="title_pref_socks_port_randomize">Randomize port on each launch</string>
     <string name="summary_pref_socks_port_randomize">VPN mode only. Picks a fresh ephemeral SOCKS port every time the service starts.</string>
+    <string name="title_pref_socks_auth_enabled">Require SOCKS5 password</string>
+    <string name="summary_pref_socks_auth_enabled">Protects the local SOCKS inbound so co-resident apps can\'t bypass per-app split tunneling. Disable only for debugging — reverts to upstream "noauth" behavior.</string>
 
     <string name="title_pref_local_dns_port">Local DNS port</string>
     <string name="summary_pref_local_dns_port">Local DNS port</string>

@@ -175,6 +175,12 @@
             android:summary="@string/summary_pref_socks_port_randomize"
             android:title="@string/title_pref_socks_port_randomize" />
 
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="pref_socks_auth_enabled"
+            android:summary="@string/summary_pref_socks_auth_enabled"
+            android:title="@string/title_pref_socks_auth_enabled" />
+
         <EditTextPreference
             android:key="pref_remote_dns"
             android:summary="@string/summary_pref_remote_dns"

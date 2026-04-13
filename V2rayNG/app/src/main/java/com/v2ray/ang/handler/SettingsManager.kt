@@ -578,6 +578,15 @@ object SettingsManager {
      * persisted, so the credentials are not rotated on every restart (which
      * would otherwise force users to reconfigure system proxy clients).
      */
+    /**
+     * Whether the local SOCKS5 inbound requires password authentication.
+     * Defaults to `true`. A debug escape hatch — disabling it reverts to
+     * `auth: noauth` and lets hev-socks5-tunnel connect without creds,
+     * matching upstream v2rayNG behavior.
+     */
+    fun isSocksAuthEnabled(): Boolean =
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_SOCKS_AUTH_ENABLED, true)
+
     fun getSocksUser(): String = ensureSocksCredential(AppConfig.PREF_SOCKS_AUTH_USER)
 
     /**

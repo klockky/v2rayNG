@@ -389,12 +389,17 @@ object V2rayConfigManager {
             // learn the outbound IP even when per-app split tunneling is
             // configured to exclude them. The credentials are stable per
             // install — see SettingsManager.getSocksUser/Pass.
-            val socksUser = SettingsManager.getSocksUser()
-            val socksPass = SettingsManager.getSocksPass()
-            inbound1.settings?.auth = "password"
-            inbound1.settings?.accounts = arrayListOf(
-                V2rayConfig.InboundBean.InSettingsBean.AccountBean(socksUser, socksPass)
-            )
+            if (SettingsManager.isSocksAuthEnabled()) {
+                val socksUser = SettingsManager.getSocksUser()
+                val socksPass = SettingsManager.getSocksPass()
+                inbound1.settings?.auth = "password"
+                inbound1.settings?.accounts = arrayListOf(
+                    V2rayConfig.InboundBean.InSettingsBean.AccountBean(socksUser, socksPass)
+                )
+            } else {
+                inbound1.settings?.auth = "noauth"
+                inbound1.settings?.accounts = null
+            }
 
             val fakedns = MmkvManager.decodeSettingsBool(AppConfig.PREF_FAKE_DNS_ENABLED) == true
             val sniffAllTlsAndHttp =

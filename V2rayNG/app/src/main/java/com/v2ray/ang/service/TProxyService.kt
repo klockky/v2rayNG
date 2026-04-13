@@ -72,12 +72,14 @@ class TProxyService(
             appendLine("  address: ${AppConfig.LOOPBACK}")
             appendLine("  udp: 'udp'")
             // Authenticate against the local SOCKS5 inbound. The app's v2ray
-            // inbound now requires password auth so that other apps on the
-            // device cannot bypass per-app split tunneling by opening the
-            // loopback SOCKS port directly. hev-socks5-tunnel is our own
-            // consumer so it must supply the matching credentials.
-            appendLine("  username: '${SettingsManager.getSocksUser()}'")
-            appendLine("  password: '${SettingsManager.getSocksPass()}'")
+            // inbound requires password auth so that other apps on the device
+            // cannot bypass per-app split tunneling by opening the loopback
+            // SOCKS port directly. Only emit creds when the master switch is
+            // on — must stay in lockstep with V2rayConfigManager.getInbounds.
+            if (SettingsManager.isSocksAuthEnabled()) {
+                appendLine("  username: '${SettingsManager.getSocksUser()}'")
+                appendLine("  password: '${SettingsManager.getSocksPass()}'")
+            }
 
             // Read-write timeout settings
             val timeoutSetting = MmkvManager.decodeSettingsString(AppConfig.PREF_HEV_TUNNEL_RW_TIMEOUT) ?: AppConfig.HEVTUN_RW_TIMEOUT
