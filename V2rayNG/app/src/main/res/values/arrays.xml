@@ -221,5 +221,59 @@
         <item>2</item>
     </string-array>
 
+    <!-- DeviceKit -->
+    <string-array name="hwid_os_entries">
+        <item>Android</item>
+        <item>iOS</item>
+        <item>Windows</item>
+        <item>macOS</item>
+        <item>Linux</item>
+    </string-array>
+
+    <string-array name="hwid_os_values" translatable="false">
+        <item>android</item>
+        <item>ios</item>
+        <item>windows</item>
+        <item>macos</item>
+        <item>linux</item>
+    </string-array>
+
+    <string-array name="hwid_user_agent_preset_entries">
+        <item>Auto (v2rayNG)</item>
+        <item>Happ</item>
+        <item>v2rayNG</item>
+        <item>v2raytun</item>
+        <item>FlClash X</item>
+        <item>Custom</item>
+    </string-array>
+
+    <string-array name="hwid_user_agent_preset_values" translatable="false">
+        <item>auto</item>
+        <item>happ</item>
+        <item>v2rayng</item>
+        <item>v2raytun</item>
+        <item>flclashx</item>
+        <item>custom</item>
+    </string-array>
+
+    <string-array name="hwid_v2raytun_platform_entries">
+        <item>android</item>
+        <item>ios</item>
+    </string-array>
+
+    <string-array name="hwid_v2raytun_platform_values" translatable="false">
+        <item>android</item>
+        <item>ios</item>
+    </string-array>
+
+    <string-array name="hwid_flclashx_platform_entries">
+        <item>android</item>
+        <item>ios</item>
+    </string-array>
+
+    <string-array name="hwid_flclashx_platform_values" translatable="false">
+        <item>android</item>
+        <item>ios</item>
+    </string-array>
 
 </resources>

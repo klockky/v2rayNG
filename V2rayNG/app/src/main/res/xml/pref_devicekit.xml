@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="@string/title_devicekit_settings">
+
+        <CheckBoxPreference
+            android:key="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_enabled"
+            android:summary="@string/summary_pref_hwid_enabled" />
+
+        <EditTextPreference
+            android:key="pref_hwid_val"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_val"
+            android:summary="@string/summary_pref_hwid_val" />
+
+        <Preference
+            android:key="pref_hwid_randomize"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_randomize"
+            android:summary="@string/summary_pref_hwid_randomize" />
+
+        <ListPreference
+            android:key="pref_hwid_os"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_os"
+            android:summary="%s"
+            android:entries="@array/hwid_os_entries"
+            android:entryValues="@array/hwid_os_values"
+            android:defaultValue="android" />
+
+        <EditTextPreference
+            android:key="pref_hwid_os_ver"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_os_ver"
+            android:summary="@string/summary_pref_hwid_os_ver" />
+
+        <EditTextPreference
+            android:key="pref_hwid_model"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_model"
+            android:summary="@string/summary_pref_hwid_model" />
+
+        <EditTextPreference
+            android:key="pref_hwid_locale"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_locale"
+            android:summary="@string/summary_pref_hwid_locale" />
+
+        <ListPreference
+            android:key="pref_hwid_user_agent_preset"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_user_agent_preset"
+            android:summary="%s"
+            android:entries="@array/hwid_user_agent_preset_entries"
+            android:entryValues="@array/hwid_user_agent_preset_values"
+            android:defaultValue="auto" />
+
+        <ListPreference
+            android:key="pref_hwid_v2raytun_platform"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_v2raytun_platform"
+            android:summary="%s"
+            android:entries="@array/hwid_v2raytun_platform_entries"
+            android:entryValues="@array/hwid_v2raytun_platform_values"
+            android:defaultValue="android" />
+
+        <EditTextPreference
+            android:key="pref_hwid_user_agent_happ_version"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_user_agent_happ_version"
+            android:summary="@string/summary_pref_hwid_user_agent_happ_version" />
+
+        <EditTextPreference
+            android:key="pref_hwid_user_agent_v2rayng_version"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_user_agent_v2rayng_version"
+            android:summary="@string/summary_pref_hwid_user_agent_v2rayng_version" />
+
+        <EditTextPreference
+            android:key="pref_hwid_user_agent_flclashx_version"
+            android:dependency="pref_hwid_enabled"
+            android:defaultValue="0.3.0"
+            android:title="@string/title_pref_hwid_user_agent_flclashx_version"
+            android:summary="@string/summary_pref_hwid_user_agent_flclashx_version" />
+
+        <ListPreference
+            android:key="pref_hwid_flclashx_platform"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_flclashx_platform"
+            android:summary="%s"
+            android:entries="@array/hwid_flclashx_platform_entries"
+            android:entryValues="@array/hwid_flclashx_platform_values"
+            android:defaultValue="android" />
+
+        <EditTextPreference
+            android:key="pref_hwid_user_agent"
+            android:dependency="pref_hwid_enabled"
+            android:title="@string/title_pref_hwid_user_agent"
+            android:summary="@string/summary_pref_hwid_user_agent" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

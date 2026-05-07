@@ -163,16 +163,15 @@ object HttpUtil {
         while (redirects++ < maxRedirects) {
             if (currentUrl == null) continue
             val client = buildOkHttpClient(timeout, httpPort, proxyUsername, proxyPassword, followRedirects = false)
-            val finalUserAgent = if (userAgent.isNullOrBlank()) {
-                "v2rayNG/${BuildConfig.VERSION_NAME}"
-            } else {
-                userAgent
-            }
             val requestBuilder = Request.Builder()
                 .url(currentUrl)
                 .get()
-                .header("User-agent", finalUserAgent)
                 .header("Connection", "close")
+            DeviceKit.applyTo(
+                builder = requestBuilder,
+                subscriptionUserAgent = userAgent,
+                defaultUserAgent = "v2rayNG/${BuildConfig.VERSION_NAME}",
+            )
 
             applyEmbeddedBasicAuthHeader(currentUrl, requestBuilder)
 

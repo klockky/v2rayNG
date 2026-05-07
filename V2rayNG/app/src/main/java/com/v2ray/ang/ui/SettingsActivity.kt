@@ -11,6 +11,7 @@ import com.v2ray.ang.AppConfig.VPN
 import com.v2ray.ang.R
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.helper.MmkvPreferenceDataStore
+import com.v2ray.ang.util.DeviceKit
 import com.v2ray.ang.util.Utils
 
 class SettingsActivity : BaseActivity() {
@@ -61,6 +62,8 @@ class SettingsActivity : BaseActivity() {
             preferenceManager.preferenceDataStore = MmkvPreferenceDataStore()
 
             addPreferencesFromResource(R.xml.pref_settings)
+
+            DeviceKit.installUi(this)
 
             initPreferenceSummaries()
 
