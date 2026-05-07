@@ -5,7 +5,6 @@ import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.PrivateKey
 import java.security.spec.PKCS8EncodedKeySpec
@@ -43,7 +42,10 @@ object HappDecryptor {
 
     @Throws(Exception::class)
     private fun decrypt(rawUrl: String): String? {
-        val path = rawUrl.substring("happ://".length)
+        // First URL-decode the input — happ:// links often come from clipboards
+        // or query strings where '=', '+', '/' arrive as %3D, %2B, %2F.
+        val decoded = android.net.Uri.decode(rawUrl) ?: rawUrl
+        val path = decoded.substring("happ://".length)
         return when {
             path.startsWith("crypt5/") -> decryptCrypt5(path.substring(7))
             path.startsWith("crypt4/") -> decryptRsaOnly(3, path.substring(7))
@@ -55,23 +57,80 @@ object HappDecryptor {
     }
 
     // -- crypt..crypt4 -------------------------------------------------------
+    // Single-block RSA-PKCS1v15 done by hand (BigInteger.modPow + manual unpad)
+    // rather than `Cipher.getInstance("RSA/ECB/PKCS1Padding")` because real
+    // happ-links arrive with junk in the payload (URL-encoding leftovers,
+    // trailing whitespace/comma, varying base64 padding) and JCE's strict
+    // BadPaddingException kills the request before we can recover. The
+    // tolerant decoder mirrors the previous DeviceKit-Addon implementation
+    // that worked in production.
 
-    private fun decryptRsaOnly(idx: Int, payload: String): String {
-        val privateKey = pkcs1Keys[idx]
-        val cipherBytes = b64DecodeUrlSafe(payload)
-        val keySize = (privateKey.modulusBitLength + 7) / 8
+    private fun decryptRsaOnly(idx: Int, rawPayload: String): String? {
+        val key = pkcs1Keys[idx]
+        val rsaKey = key.key as java.security.interfaces.RSAPrivateKey
+        val keySize = (rsaKey.modulus.bitLength() + 7) / 8
 
-        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-        cipher.init(Cipher.DECRYPT_MODE, privateKey.key)
+        val cleaned = normalizeBase64Payload(rawPayload)
+        val cipherBytes = findCiphertextBytes(cleaned, keySize) ?: return null
 
-        val out = ByteArrayOutputStream()
-        var off = 0
-        while (off < cipherBytes.size) {
-            val end = minOf(off + keySize, cipherBytes.size)
-            out.write(cipher.doFinal(cipherBytes, off, end - off))
-            off = end
+        val ciphertextInt = java.math.BigInteger(1, cipherBytes)
+        val plainInt = ciphertextInt.modPow(rsaKey.privateExponent, rsaKey.modulus)
+        val padded = toFixedLength(plainInt, keySize)
+        val plain = pkcs1v15Unpad(padded) ?: return null
+        return String(plain, Charsets.UTF_8)
+    }
+
+    private val base64StripRegex = Regex("[^A-Za-z0-9+/=_-]")
+
+    private fun normalizeBase64Payload(payload: String): String =
+        payload.replace(' ', '+')
+            .replace(base64StripRegex, "")
+            .replace('-', '+')
+            .replace('_', '/')
+            .trimEnd('=')
+
+    /** Tries up to 9 candidate trims of the trailing payload to find a base64
+     *  string that decodes to <= keySize bytes (or keySize+1 with a leading
+     *  zero-byte, which BigInteger sign byte produces). */
+    private fun findCiphertextBytes(body: String, maxSizeBytes: Int): ByteArray? {
+        for (drop in 0..8) {
+            var t = if (drop == 0) body else body.dropLast(drop)
+            while (t.length % 4 == 1 && t.isNotEmpty()) t = t.dropLast(1)
+            if (t.isEmpty()) continue
+            val padLen = (4 - (t.length % 4)) % 4
+            val padded = t + "=".repeat(padLen)
+            val decoded = try {
+                Base64.decode(padded, Base64.NO_WRAP)
+            } catch (_: Exception) {
+                continue
+            }
+            if (decoded.isNotEmpty() && decoded.size <= maxSizeBytes) return decoded
+            if (decoded.size == maxSizeBytes + 1 && decoded[0] == 0.toByte()) {
+                return decoded.copyOfRange(1, decoded.size)
+            }
         }
-        return out.toString("UTF-8")
+        return null
+    }
+
+    private fun pkcs1v15Unpad(block: ByteArray): ByteArray? {
+        if (block.size < 11) return null
+        if (block[0] != 0.toByte() || block[1] != 2.toByte()) return null
+        var sep = -1
+        for (i in 2 until block.size) {
+            if (block[i] == 0.toByte()) { sep = i; break }
+        }
+        if (sep < 10) return null
+        return block.copyOfRange(sep + 1, block.size)
+    }
+
+    private fun toFixedLength(value: java.math.BigInteger, length: Int): ByteArray {
+        val raw = value.toByteArray()
+        return when {
+            raw.size == length -> raw
+            raw.size == length + 1 && raw[0] == 0.toByte() -> raw.copyOfRange(1, raw.size)
+            raw.size < length -> ByteArray(length - raw.size) + raw
+            else -> raw.copyOfRange(raw.size - length, raw.size)
+        }
     }
 
     // -- crypt5 --------------------------------------------------------------
