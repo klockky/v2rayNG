@@ -31,28 +31,47 @@ object HappDecryptor {
 
     fun tryDecrypt(rawUrl: String?): String? {
         if (rawUrl.isNullOrBlank()) return null
-        if (!rawUrl.startsWith("happ://", ignoreCase = true)) return null
+        val trimmed = rawUrl.trim()
+        if (!trimmed.startsWith("happ://", ignoreCase = true)) return null
         return try {
-            decrypt(rawUrl)
+            val out = decrypt(trimmed)
+            if (out == null) {
+                android.util.Log.w(
+                    AppConfig.TAG,
+                    "happ decrypt returned null for input len=${trimmed.length} prefix=${trimmed.take(16)}"
+                )
+            } else {
+                android.util.Log.i(AppConfig.TAG, "happ decrypt ok, len=${out.length}")
+            }
+            out
         } catch (t: Throwable) {
-            android.util.Log.w(AppConfig.TAG, "happ decrypt failed: ${t.message}")
+            android.util.Log.w(
+                AppConfig.TAG,
+                "happ decrypt threw: ${t.javaClass.simpleName}: ${t.message} (input len=${trimmed.length}, prefix=${trimmed.take(16)})"
+            )
             null
         }
     }
 
     @Throws(Exception::class)
     private fun decrypt(rawUrl: String): String? {
-        // First URL-decode the input — happ:// links often come from clipboards
-        // or query strings where '=', '+', '/' arrive as %3D, %2B, %2F.
+        // URL-decode first — links often arrive with %3D / %2B / %2F leftovers
+        // from clipboards, query strings, or share sheets.
         val decoded = android.net.Uri.decode(rawUrl) ?: rawUrl
         val path = decoded.substring("happ://".length)
+        // Order matters: crypt5/ must be tested before crypt/ etc.
+        // (crypt5 ⊃ crypt2..crypt4 only as text prefix matches; with proper
+        //  startsWith on "cryptN/" the slash anchors it and there's no overlap.)
         return when {
-            path.startsWith("crypt5/") -> decryptCrypt5(path.substring(7))
-            path.startsWith("crypt4/") -> decryptRsaOnly(3, path.substring(7))
-            path.startsWith("crypt3/") -> decryptRsaOnly(2, path.substring(7))
-            path.startsWith("crypt2/") -> decryptRsaOnly(1, path.substring(7))
-            path.startsWith("crypt/")  -> decryptRsaOnly(0, path.substring(6))
-            else -> null
+            path.startsWith("crypt5/", ignoreCase = true) -> decryptCrypt5(path.substring(7))
+            path.startsWith("crypt4/", ignoreCase = true) -> decryptRsaOnly(3, path.substring(7))
+            path.startsWith("crypt3/", ignoreCase = true) -> decryptRsaOnly(2, path.substring(7))
+            path.startsWith("crypt2/", ignoreCase = true) -> decryptRsaOnly(1, path.substring(7))
+            path.startsWith("crypt/", ignoreCase = true)  -> decryptRsaOnly(0, path.substring(6))
+            else -> {
+                android.util.Log.w(AppConfig.TAG, "happ: unknown variant, path=${path.take(20)}")
+                null
+            }
         }
     }
 
@@ -71,12 +90,26 @@ object HappDecryptor {
         val keySize = (rsaKey.modulus.bitLength() + 7) / 8
 
         val cleaned = normalizeBase64Payload(rawPayload)
-        val cipherBytes = findCiphertextBytes(cleaned, keySize) ?: return null
+        val cipherBytes = findCiphertextBytes(cleaned, keySize)
+        if (cipherBytes == null) {
+            android.util.Log.w(
+                AppConfig.TAG,
+                "happ crypt$idx: base64 decode failed (raw len=${rawPayload.length}, cleaned len=${cleaned.length}, expected keySize=$keySize)"
+            )
+            return null
+        }
 
         val ciphertextInt = java.math.BigInteger(1, cipherBytes)
         val plainInt = ciphertextInt.modPow(rsaKey.privateExponent, rsaKey.modulus)
         val padded = toFixedLength(plainInt, keySize)
-        val plain = pkcs1v15Unpad(padded) ?: return null
+        val plain = pkcs1v15Unpad(padded)
+        if (plain == null) {
+            android.util.Log.w(
+                AppConfig.TAG,
+                "happ crypt$idx: PKCS#1 v1.5 unpad failed (cipher bytes=${cipherBytes.size}, padded[0..3]=${padded.take(4).joinToString(",") { (it.toInt() and 0xff).toString() }})"
+            )
+            return null
+        }
         return String(plain, Charsets.UTF_8)
     }
 
