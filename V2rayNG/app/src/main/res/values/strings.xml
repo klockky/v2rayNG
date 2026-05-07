@@ -473,32 +473,4 @@
         <item>WebDAV</item>
     </string-array>
 
-    <!-- DeviceKit (HWID / User-Agent overrides for subscription fetches) -->
-    <string name="title_devicekit_settings">DeviceKit</string>
-    <string name="title_pref_hwid_enabled">Enable Custom HWID</string>
-    <string name="summary_pref_hwid_enabled">Override device hardware ID for subscriptions</string>
-    <string name="title_pref_hwid_val">Custom HWID (X-HWID)</string>
-    <string name="summary_pref_hwid_val">Device ID sent in X-HWID header</string>
-    <string name="title_pref_hwid_os">Custom OS (X-Device-OS)</string>
-    <string name="summary_pref_hwid_os">Operating System (e.g. android)</string>
-    <string name="title_pref_hwid_os_ver">Custom OS Version (X-Ver-OS)</string>
-    <string name="summary_pref_hwid_os_ver">OS Version (e.g. 14, 15)</string>
-    <string name="title_pref_hwid_model">Custom Model (X-Device-Model)</string>
-    <string name="summary_pref_hwid_model">Device Model (e.g. Pixel 8)</string>
-    <string name="title_pref_hwid_locale">Custom Locale (X-Device-Locale)</string>
-    <string name="summary_pref_hwid_locale">Locale sent in X-Device-Locale header (e.g. ru, en, en-US)</string>
-    <string name="title_pref_hwid_user_agent">Custom User-Agent</string>
-    <string name="summary_pref_hwid_user_agent">User-Agent header (e.g. Happ/3.8.1 or v2rayNG/2.0.3)</string>
-    <string name="title_pref_hwid_user_agent_preset">User-Agent preset</string>
-    <string name="title_pref_hwid_v2raytun_platform">v2raytun platform</string>
-    <string name="title_pref_hwid_user_agent_happ_version">Happ version</string>
-    <string name="summary_pref_hwid_user_agent_happ_version">Version part for Happ/&lt;version&gt; preset (e.g. 3.8.1)</string>
-    <string name="title_pref_hwid_user_agent_v2rayng_version">v2rayNG version</string>
-    <string name="summary_pref_hwid_user_agent_v2rayng_version">Version part for v2rayNG/&lt;version&gt; preset (default is app version)</string>
-    <string name="title_pref_hwid_user_agent_flclashx_version">FlClashX version</string>
-    <string name="title_pref_hwid_flclashx_platform">FlClashX platform</string>
-    <string name="summary_pref_hwid_user_agent_flclashx_version">Version part for FlClash X/v&lt;version&gt; preset</string>
-    <string name="title_pref_hwid_randomize">Randomize HWID</string>
-    <string name="summary_pref_hwid_randomize">Generate a random UUID and set it as HWID</string>
-
 </resources>

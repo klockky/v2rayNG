@@ -462,32 +462,4 @@
         <item>WebDAV</item>
     </string-array>
 
-    <!-- DeviceKit -->
-    <string name="title_devicekit_settings">DeviceKit</string>
-    <string name="title_pref_hwid_enabled">Включить кастомный HWID</string>
-    <string name="summary_pref_hwid_enabled">Переопределять HWID устройства для подписок</string>
-    <string name="title_pref_hwid_val">Кастомный HWID (X-HWID)</string>
-    <string name="summary_pref_hwid_val">ID устройства, который отправляется в заголовке X-HWID</string>
-    <string name="title_pref_hwid_os">Кастомная ОС (X-Device-OS)</string>
-    <string name="summary_pref_hwid_os">Операционная система (например, android)</string>
-    <string name="title_pref_hwid_os_ver">Версия ОС (X-Ver-OS)</string>
-    <string name="summary_pref_hwid_os_ver">Версия ОС (например, 14, 15)</string>
-    <string name="title_pref_hwid_model">Кастомная модель (X-Device-Model)</string>
-    <string name="summary_pref_hwid_model">Модель устройства (например, Pixel 8)</string>
-    <string name="title_pref_hwid_locale">Кастомная локаль (X-Device-Locale)</string>
-    <string name="summary_pref_hwid_locale">Локаль для заголовка X-Device-Locale (например, ru, en, en-US)</string>
-    <string name="title_pref_hwid_user_agent">Кастомный User-Agent</string>
-    <string name="summary_pref_hwid_user_agent">Заголовок User-Agent (например, Happ/3.8.1 или v2rayNG/2.0.3)</string>
-    <string name="title_pref_hwid_user_agent_preset">Пресет User-Agent</string>
-    <string name="title_pref_hwid_v2raytun_platform">Платформа v2raytun</string>
-    <string name="title_pref_hwid_user_agent_happ_version">Версия Happ</string>
-    <string name="summary_pref_hwid_user_agent_happ_version">Версия для пресета Happ/&lt;версия&gt; (например, 3.8.1)</string>
-    <string name="title_pref_hwid_user_agent_v2rayng_version">Версия v2rayNG</string>
-    <string name="summary_pref_hwid_user_agent_v2rayng_version">Версия для пресета v2rayNG/&lt;версия&gt; (по умолчанию версия приложения)</string>
-    <string name="title_pref_hwid_user_agent_flclashx_version">Версия FlClashX</string>
-    <string name="title_pref_hwid_flclashx_platform">Платформа FlClashX</string>
-    <string name="summary_pref_hwid_user_agent_flclashx_version">Версия для пресета FlClash X/v&lt;версия&gt;</string>
-    <string name="title_pref_hwid_randomize">Случайный HWID</string>
-    <string name="summary_pref_hwid_randomize">Сгенерировать случайный UUID и установить его как HWID</string>
-
 </resources>
