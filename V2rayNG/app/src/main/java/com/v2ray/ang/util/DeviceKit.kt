@@ -131,10 +131,17 @@ object DeviceKit {
     }
 
     /**
-     * Inflates the DeviceKit preference category into the given Settings
-     * fragment and wires up dynamic preset/visibility logic.
+     * Inflates DeviceKit preferences, lets the host populate summaries /
+     * generic listeners over the combined tree (via [betweenInflateAndBind]),
+     * then attaches DeviceKit's own listeners last so they override the host's
+     * for prefs needing extra logic (preset change, randomize, enable toggle).
+     *
+     * androidx.preference forbids `pref.summary = …` once a SummaryProvider
+     * is set, so DeviceKit deliberately does NOT install SummaryProviders;
+     * the host's pass writes summaries for our prefs the same way it does
+     * for its own EditTextPreference / ListPreference rows.
      */
-    fun installUi(fragment: PreferenceFragmentCompat) {
+    fun installUi(fragment: PreferenceFragmentCompat, betweenInflateAndBind: () -> Unit = {}) {
         val screen = fragment.preferenceScreen
             ?: fragment.preferenceManager.createPreferenceScreen(fragment.requireContext()).also {
                 fragment.preferenceScreen = it
@@ -146,7 +153,7 @@ object DeviceKit {
         }.isSuccess
         if (!ok) runCatching { fragment.addPreferencesFromResource(R.xml.pref_devicekit) }
 
-        installSummaryProviders(fragment)
+        betweenInflateAndBind()
         bindBehaviour(fragment)
     }
 
@@ -238,20 +245,6 @@ object DeviceKit {
         val uaFlclashxVersion: EditTextPreference?,
         val uaFlclashxPlatform: ListPreference?,
     )
-
-    private fun installSummaryProviders(fragment: PreferenceFragmentCompat) {
-        listOf(Prefs.OS, Prefs.UA_PRESET, Prefs.UA_V2RAYTUN_PLATFORM, Prefs.UA_FLCLASHX_PLATFORM).forEach { key ->
-            fragment.findPreference<ListPreference>(key)?.summaryProvider =
-                Preference.SummaryProvider<ListPreference> { it.entry ?: "" }
-        }
-        listOf(
-            Prefs.HWID, Prefs.OS_VER, Prefs.MODEL, Prefs.LOCALE,
-            Prefs.UA_HAPP_VERSION, Prefs.UA_V2RAYNG_VERSION, Prefs.UA_FLCLASHX_VERSION, Prefs.UA_CUSTOM,
-        ).forEach { key ->
-            fragment.findPreference<EditTextPreference>(key)?.summaryProvider =
-                Preference.SummaryProvider<EditTextPreference> { it.text.orEmpty() }
-        }
-    }
 
     private fun bindBehaviour(fragment: PreferenceFragmentCompat) {
         val prefs = collectPrefs(fragment)

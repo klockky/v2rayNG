@@ -63,9 +63,10 @@ class SettingsActivity : BaseActivity() {
 
             addPreferencesFromResource(R.xml.pref_settings)
 
-            DeviceKit.installUi(this)
-
-            initPreferenceSummaries()
+            // DeviceKit inflates its own preferences, then asks us to do the
+            // host summary/listener pass over the combined tree, then attaches
+            // its own listeners last so its overrides win where they exist.
+            DeviceKit.installUi(this) { initPreferenceSummaries() }
 
             localDns?.setOnPreferenceChangeListener { _, any ->
                 updateLocalDns(any as Boolean)
