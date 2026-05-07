@@ -115,9 +115,10 @@ object HttpUtil {
         proxyUsername: String? = null,
         proxyPassword: String? = null
     ): String? {
+        val effectiveUrl = HappDecryptor.tryDecrypt(url) ?: url
         val client = buildOkHttpClient(timeout, httpPort, proxyUsername, proxyPassword, followRedirects = true)
         val requestBuilder = Request.Builder()
-            .url(url)
+            .url(effectiveUrl)
             .get()
             .header("Connection", "close")
         if (httpPort != 0 && !proxyUsername.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
@@ -155,7 +156,7 @@ object HttpUtil {
         proxyUsername: String? = null,
         proxyPassword: String? = null
     ): String {
-        var currentUrl = url
+        var currentUrl = url?.let { HappDecryptor.tryDecrypt(it) ?: it }
         var redirects = 0
         val maxRedirects = 3
 
@@ -278,9 +279,10 @@ object HttpUtil {
         proxyUsername: String? = null,
         proxyPassword: String? = null
     ): Boolean {
+        val effectiveUrl = HappDecryptor.tryDecrypt(url) ?: url
         val client = buildOkHttpClient(timeout, httpPort, proxyUsername, proxyPassword, followRedirects = true)
         val requestBuilder = Request.Builder()
-            .url(url)
+            .url(effectiveUrl)
             .get()
             .header("Connection", "close")
         if (httpPort != 0 && !proxyUsername.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
