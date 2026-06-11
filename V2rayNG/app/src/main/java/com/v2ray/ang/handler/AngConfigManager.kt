@@ -176,17 +176,21 @@ object AngConfigManager {
      * @return A pair containing the number of configurations and subscriptions imported.
      */
     fun importBatchConfig(server: String?, subid: String, append: Boolean): Pair<Int, Int> {
-        var count = parseBatchConfig(Utils.decode(server), subid, append)
+        // Expand happ:// links up front so both the config and subscription parsers
+        // operate on the decrypted content (a happ link may resolve to either).
+        val expanded = Compat.expandHappLinksInText(server) ?: server
+
+        var count = parseBatchConfig(Utils.decode(expanded), subid, append)
         if (count <= 0) {
-            count = parseBatchConfig(server, subid, append)
+            count = parseBatchConfig(expanded, subid, append)
         }
         if (count <= 0) {
-            count = parseCustomConfigServer(server, subid, append)
+            count = parseCustomConfigServer(expanded, subid, append)
         }
 
-        var countSub = parseBatchSubscription(server)
+        var countSub = parseBatchSubscription(expanded)
         if (countSub <= 0) {
-            countSub = parseBatchSubscription(Utils.decode(server))
+            countSub = parseBatchSubscription(Utils.decode(expanded))
         }
         if (countSub > 0) {
             updateConfigViaSubAll()
