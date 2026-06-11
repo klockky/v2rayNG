@@ -21,6 +21,7 @@ import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.util.Utils
+import com.v2ray.devicekit.Compat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -151,6 +152,9 @@ class SubEditActivity : BaseActivity() {
             return false
         }
         if (subItem.url.isNotEmpty()) {
+            // Expand happ://crypt... links so subscriptions are stored as plain https URLs
+            subItem.url = Compat.decryptSubscriptionUrl(subItem.url) ?: subItem.url
+
             if (!Utils.isValidUrl(subItem.url)) {
                 toast(R.string.toast_invalid_url)
                 return false

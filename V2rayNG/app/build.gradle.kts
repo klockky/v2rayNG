@@ -140,6 +140,9 @@ dependencies {
     // Core Libraries
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
 
+    // DeviceKit add-on (git submodule at V2rayNG/devicekit)
+    implementation(project(":devicekit"))
+
     // AndroidX Core Libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

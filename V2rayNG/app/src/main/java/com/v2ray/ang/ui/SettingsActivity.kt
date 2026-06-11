@@ -12,6 +12,7 @@ import com.v2ray.ang.R
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.helper.MmkvPreferenceDataStore
 import com.v2ray.ang.util.Utils
+import com.v2ray.devicekit.SettingsUi
 
 class SettingsActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,6 +64,9 @@ class SettingsActivity : BaseActivity() {
             addPreferencesFromResource(R.xml.pref_settings)
 
             initPreferenceSummaries()
+
+            // Install DeviceKit preferences (HWID / custom User-Agent) from the add-on module
+            SettingsUi.install(this)
 
             localDns?.setOnPreferenceChangeListener { _, any ->
                 updateLocalDns(any as Boolean)
