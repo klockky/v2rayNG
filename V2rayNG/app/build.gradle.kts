@@ -50,6 +50,10 @@ android {
 
     flavorDimensions.add("distribution")
     productFlavors {
+        create("general") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION", "\"General\"")
+        }
         create("fdroid") {
             dimension = "distribution"
             applicationIdSuffix = ".fdroid"
@@ -82,6 +86,7 @@ android {
     applicationVariants.all {
         val variant = this
         val isFdroid = variant.productFlavors.any { it.name == "fdroid" }
+        val isGeneral = variant.productFlavors.any { it.name == "general" }
         if (isFdroid) {
             val versionCodes =
                 mapOf(
@@ -99,6 +104,13 @@ android {
                     } else {
                         return@forEach
                     }
+                }
+        } else if (isGeneral) {
+            variant.outputs
+                .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
+                .forEach { output ->
+                    val abi = output.getFilter("ABI") ?: "universal"
+                    output.outputFileName = "v2rayNG_${variant.versionName}_${abi}.apk"
                 }
         } else {
             val versionCodes =
