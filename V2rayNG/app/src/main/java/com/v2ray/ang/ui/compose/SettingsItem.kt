@@ -54,7 +54,7 @@ fun PreferenceGroupHeader(title: String, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.primary,
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 28.dp, end = 16.dp, top = 20.dp, bottom = 8.dp)
+            .padding(start = 28.dp, end = 16.dp, top = 16.dp, bottom = 6.dp)
     )
 }
 
@@ -104,10 +104,10 @@ fun CollapsiblePreferenceGroupHeader(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(top = 12.dp, bottom = 4.dp)
+            .padding(top = 8.dp, bottom = 2.dp)
             .clip(CircleShape)
             .clickable { onExpandedChange(!expanded) }
-            .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -118,7 +118,7 @@ fun CollapsiblePreferenceGroupHeader(
         )
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(28.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
@@ -128,7 +128,7 @@ fun CollapsiblePreferenceGroupHeader(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(18.dp)
                     .rotate(chevronRotation)
             )
         }
@@ -163,7 +163,7 @@ private fun SettingsItemRow(
             .fillMaxWidth()
             .then(segment)
             .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
@@ -178,14 +178,14 @@ private fun SettingsItemRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 color = titleColor
             )
             if (!description.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = descriptionColor
                 )
             }

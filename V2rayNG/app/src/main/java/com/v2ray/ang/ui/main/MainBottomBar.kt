@@ -62,7 +62,7 @@ fun MainBottomBar(
 
     // Expressive shape morph: rounded square while stopped, full circle while connected
     val fabCorner by animateDpAsState(
-        targetValue = if (isRunning) 36.dp else 20.dp,
+        targetValue = if (isRunning) 28.dp else 16.dp,
         animationSpec = motion.defaultSpatialSpec(),
         label = "FabCorner"
     )
@@ -82,31 +82,31 @@ fun MainBottomBar(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             onClick = { onAction(MainAction.TestCurrentServer) },
             modifier = Modifier
                 .weight(1f)
-                .height(64.dp),
-            shape = RoundedCornerShape(32.dp),
+                .height(56.dp),
+            shape = RoundedCornerShape(28.dp),
             color = colors.surfaceContainerHigh
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 20.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(8.dp)
                         .clip(CircleShape)
                         .background(statusDot)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = displayText,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -129,7 +129,7 @@ fun MainBottomBar(
                 }
                 onAction(MainAction.ToggleService)
             },
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(56.dp),
             shape = RoundedCornerShape(fabCorner),
             containerColor = fabContainer,
             contentColor = fabContent,
@@ -142,7 +142,7 @@ fun MainBottomBar(
                     if (isRunning) R.string.acc_stop else R.string.acc_start
                 ),
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(24.dp)
                     .graphicsLayer { rotationZ = rotationAnim.value }
             )
         }

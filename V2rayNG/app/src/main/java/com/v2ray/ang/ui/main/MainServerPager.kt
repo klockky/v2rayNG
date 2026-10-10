@@ -314,7 +314,7 @@ private fun ServerListItem(
     }
     val motion = MaterialTheme.motionScheme
     val cornerRadius by animateDpAsState(
-        targetValue = if (isSelected) 28.dp else 12.dp,
+        targetValue = if (isSelected) 20.dp else 10.dp,
         animationSpec = motion.defaultSpatialSpec(),
         label = "ServerCardCorner"
     )
@@ -332,7 +332,7 @@ private fun ServerListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 3.dp)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(cornerRadius))
             .background(containerColor)
             .semantics {
@@ -346,13 +346,13 @@ private fun ServerListItem(
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp)
+                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     row.remarks,
                     Modifier.weight(1f),
-                    style = (if (isSelected) MaterialTheme.typography.titleMediumEmphasized else MaterialTheme.typography.titleMedium)
+                    style = (if (isSelected) MaterialTheme.typography.bodyLargeEmphasized else MaterialTheme.typography.bodyLarge)
                         .copy(lineBreak = LineBreak.Paragraph),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -389,34 +389,34 @@ private fun ServerListItem(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (row.subscriptionBadge.isNotBlank()) {
                     Box(
                         Modifier
-                            .size(24.dp)
+                            .size(20.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.tertiaryContainer), Alignment.Center
                     ) {
-                        Text(row.subscriptionBadge.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Text(row.subscriptionBadge.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
                     row.statistics,
                     Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = secondaryTextColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     row.typeDescription,
                     modifier = Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -424,7 +424,7 @@ private fun ServerListItem(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     testResult,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = if (row.testDelayMillis < 0L) colorPingRed else colorPing,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

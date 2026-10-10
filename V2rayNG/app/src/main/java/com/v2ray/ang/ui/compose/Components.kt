@@ -88,7 +88,7 @@ fun AppTopBar(
                 } else {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleLargeEmphasized,
+                        style = MaterialTheme.typography.titleLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
