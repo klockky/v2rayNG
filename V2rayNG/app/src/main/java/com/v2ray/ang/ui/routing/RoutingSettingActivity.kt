@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.routing
 
+import com.v2ray.ang.ui.compose.AppSwitch
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.viewModels
@@ -58,7 +59,6 @@ import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
 import com.v2ray.ang.ui.compose.ReorderableListItem
 import com.v2ray.ang.ui.compose.SelectListDialog
 import com.v2ray.ang.ui.compose.SettingsListItem
-import com.v2ray.ang.ui.compose.colorConfigType
 import com.v2ray.ang.ui.compose.verticalScrollbar
 import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
@@ -238,7 +238,6 @@ fun RoutingSettingScreen(
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
-                            containerColor = MaterialTheme.colorScheme.surface
                         ) {
                             AppDropdownMenuItems(RoutingMenuAction.entries, { it.labelRes }) { action ->
                                 showMenu = false
@@ -298,7 +297,6 @@ fun RoutingSettingScreen(
                             }
                         )
                     }
-                    ItemDivider()
                 }
             }
         }
@@ -328,7 +326,7 @@ private fun RoutingRulesetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -351,45 +349,35 @@ private fun RoutingRulesetItem(
             }
             val domainIpInfo = (ruleset.domain ?: ruleset.ip ?: ruleset.process ?: ruleset.port)?.toString() ?: ""
             if (domainIpInfo.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = domainIpInfo,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             if (!ruleset.outboundTag.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = ruleset.outboundTag,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colorConfigType
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
 
-        Column(
-            horizontalAlignment = Alignment.End,
-            modifier = Modifier.padding(start = 8.dp)
-        ) {
-            IconButton(onClick = onEdit) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_edit_24dp),
-                    contentDescription = stringResource(R.string.acc_edit)
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Switch(
-                checked = ruleset.enabled ?: false,
-                onCheckedChange = onEnabledChange,
-                modifier = Modifier.scale(0.7f),
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary
-                )
+        IconButton(onClick = onEdit) {
+            Icon(
+                painter = painterResource(R.drawable.ic_edit_24dp),
+                contentDescription = stringResource(R.string.acc_edit)
             )
         }
+        AppSwitch(
+            checked = ruleset.enabled ?: false,
+            onCheckedChange = onEnabledChange,
+            modifier = Modifier.padding(start = 4.dp, end = 8.dp)
+        )
     }
 }

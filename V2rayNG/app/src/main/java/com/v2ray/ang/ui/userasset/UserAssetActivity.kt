@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.userasset
 
+import com.v2ray.ang.ui.compose.listCard
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -283,7 +284,6 @@ internal fun UserAssetScreen(
                         DropdownMenu(
                             expanded = showAddMenu,
                             onDismissRequest = { showAddMenu = false },
-                            containerColor = MaterialTheme.colorScheme.surface,
                             offset = DpOffset(x = 0.dp, y = 0.dp),
                             modifier = Modifier.wrapContentWidth(Alignment.End)
                         ) {
@@ -337,7 +337,6 @@ internal fun UserAssetScreen(
                         deleteTarget = AssetDeleteTarget(item.guid, item.assetUrl.remarks)
                     }
                 )
-                ItemDivider()
             }
         }
     }
@@ -379,13 +378,12 @@ private fun UserAssetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .listCard()
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(8.dp)
+            modifier = Modifier.weight(1f)
         ) {
             Text(
                 text = item.assetUrl.remarks,

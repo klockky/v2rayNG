@@ -165,7 +165,6 @@ fun AppPickerScreen(
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
-                            containerColor = MaterialTheme.colorScheme.surface
                         ) {
                             AppDropdownMenuItems(AppPickerMenuAction.entries, { it.labelRes }) { action ->
                                 showMenu = false

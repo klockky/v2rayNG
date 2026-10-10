@@ -325,18 +325,9 @@ fun SettingsSwitchItem(
         modifier = modifier,
         trailing = {
             Spacer(modifier = Modifier.width(12.dp))
-            Switch(
+            AppSwitch(
                 checked = checked,
                 onCheckedChange = if (enabled) onCheckedChange else null,
-                thumbContent = if (checked) {
-                    {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_fab_check),
-                            contentDescription = null,
-                            modifier = Modifier.size(SwitchDefaults.IconSize)
-                        )
-                    }
-                } else null,
                 enabled = enabled
             )
         }

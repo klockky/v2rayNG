@@ -1,5 +1,9 @@
 package com.v2ray.ang.ui.perappproxy
 
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.style.TextOverflow
 import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
@@ -172,7 +176,6 @@ fun PerAppProxyScreen(
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
-                            containerColor = MaterialTheme.colorScheme.surface
                         ) {
                             AppDropdownMenuItems(PerAppMenuAction.entries, { it.labelRes }) { action ->
                                 showMenu = false
@@ -204,49 +207,27 @@ fun PerAppProxyScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.Start
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.per_app_proxy_settings_enable),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
-                            checked = perAppProxyEnabled,
-                            modifier = Modifier.scale(0.65f),
-                            onCheckedChange = onPerAppProxyChanged,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.switch_bypass_apps_mode),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
-                            checked = bypassApps,
-                            modifier = Modifier.scale(0.65f),
-                            onCheckedChange = onBypassAppsChanged,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
+                    FilterChip(
+                        selected = perAppProxyEnabled,
+                        onClick = { onPerAppProxyChanged(!perAppProxyEnabled) },
+                        label = { Text(stringResource(R.string.per_app_proxy_settings_enable), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = if (perAppProxyEnabled) {
+                            { Icon(painterResource(R.drawable.ic_fab_check), contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                        } else null,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilterChip(
+                        selected = bypassApps,
+                        onClick = { onBypassAppsChanged(!bypassApps) },
+                        label = { Text(stringResource(R.string.switch_bypass_apps_mode), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = if (bypassApps) {
+                            { Icon(painterResource(R.drawable.ic_fab_check), contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                        } else null,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                     IconButton(onClick = onInfoClick) {
                         Icon(
                             painter = painterResource(R.drawable.ic_about_24dp),
@@ -256,7 +237,6 @@ fun PerAppProxyScreen(
                     }
                 }
             }
-            AppDivider()
 
             LazyColumn(
                 state = listState,
@@ -274,7 +254,6 @@ fun PerAppProxyScreen(
                         checked = checked,
                         onCheckedChange = { onToggleApp(app.packageName) }
                     )
-                    ItemDivider()
                 }
             }
         }

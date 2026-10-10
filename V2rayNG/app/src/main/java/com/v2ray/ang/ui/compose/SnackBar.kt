@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.compose
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -175,12 +176,12 @@ fun AppSnackbarHost(
         ) { data ->
             val type = (data.visuals as? AppSnackbarVisuals)?.type ?: ToastType.NORMAL
 
-            val isDark = LocalDarkTheme.current
-            val bgColor = when (type) {
-                ToastType.NORMAL -> if (isDark) toastNormalBgDark else toastNormalBgLight
-                ToastType.SUCCESS -> toastSuccessBg
-                ToastType.ERROR -> toastErrorBg
-                ToastType.INFO -> toastInfoBg
+            val colors = MaterialTheme.colorScheme
+            val (bgColor, textColor) = when (type) {
+                ToastType.NORMAL -> colors.inverseSurface to colors.inverseOnSurface
+                ToastType.SUCCESS -> colors.primaryContainer to colors.onPrimaryContainer
+                ToastType.ERROR -> colors.errorContainer to colors.onErrorContainer
+                ToastType.INFO -> colors.tertiaryContainer to colors.onTertiaryContainer
             }
 
             Box(
@@ -207,8 +208,8 @@ fun AppSnackbarHost(
                     ) {
                         Text(
                             text = data.visuals.message,
-                            color = toastTextColor,
-                            fontSize = 14.sp,
+                            color = textColor,
+                            style = MaterialTheme.typography.bodyMedium,
                             maxLines = ToastMaxLines,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.wrapContentWidth()

@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.subscription
 
+import com.v2ray.ang.ui.compose.AppSwitch
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.viewModels
@@ -164,7 +165,7 @@ fun SubSettingScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp),
+                                .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
@@ -178,7 +179,7 @@ fun SubSettingScreen(
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = subCache.subscription.url,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -187,16 +188,16 @@ fun SubSettingScreen(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = Utils.formatTimestamp(subCache.subscription.lastUpdated),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
-                            Column(
-                                horizontalAlignment = Alignment.End,
-                                modifier = Modifier.padding(start = 8.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 4.dp)
                             ) {
-                                Row {
+                                run {
                                     if (subCache.subscription.url.isNotEmpty()) {
                                         IconButton(onClick = {
                                             shareTarget = Pair(subCache.guid, subCache.subscription.url)
@@ -223,24 +224,18 @@ fun SubSettingScreen(
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Switch(
+                                AppSwitch(
                                     checked = subCache.subscription.enabled,
                                     onCheckedChange = { checked ->
                                         val updated = subCache.subscription.copy()
                                         updated.enabled = checked
                                         viewModel.update(subCache.guid, updated)
                                     },
-                                    modifier = Modifier.scale(0.7f),
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary
-                                    )
+                                    modifier = Modifier.padding(start = 4.dp, end = 8.dp)
                                 )
                             }
                         }
                     }
-                    ItemDivider()
                 }
             }
         }

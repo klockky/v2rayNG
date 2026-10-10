@@ -1,5 +1,9 @@
 package com.v2ray.ang.ui.compose
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -142,8 +146,8 @@ private fun SearchInputField(
             value = query,
             onValueChange = onQueryChange,
             singleLine = true,
-            textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp),
-            placeholder = { if (placeholder != null) Text(placeholder, style = TextStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)) },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+            placeholder = { if (placeholder != null) Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
@@ -181,8 +185,9 @@ fun AppListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .listCard()
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val model = remember(icon, packageName) {
@@ -200,7 +205,7 @@ fun AppListItem(
         AsyncImage(
             model = model,
             contentDescription = null,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(36.dp),
             contentScale = ContentScale.Fit,
             error = painterResource(R.drawable.ic_image_24dp),
             fallback = painterResource(R.drawable.ic_image_24dp)
@@ -224,10 +229,41 @@ fun AppListItem(
         }
         Checkbox(
             checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+            onCheckedChange = onCheckedChange
         )
     }
+}
+
+/** Rounded card background for list rows (subscriptions, rules, assets, apps). */
+@Composable
+fun Modifier.listCard(): Modifier = this
+    .padding(horizontal = 12.dp, vertical = 2.dp)
+    .clip(MaterialTheme.shapes.medium)
+    .background(MaterialTheme.colorScheme.surfaceContainer)
+
+/** Standard Material 3 switch with the expressive check icon on the thumb. */
+@Composable
+fun AppSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        enabled = enabled,
+        thumbContent = if (checked) {
+            {
+                Icon(
+                    painter = painterResource(R.drawable.ic_fab_check),
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                )
+            }
+        } else null
+    )
 }
 
 @Composable
@@ -237,8 +273,7 @@ fun ItemDivider() {
 
 @Composable
 fun AppDivider(modifier: Modifier = Modifier) {
-    val color = if (LocalDarkTheme.current) dividerColorDark else dividerColorLight
-    HorizontalDivider(modifier = modifier.fillMaxWidth(), thickness = 1.dp, color = color)
+    HorizontalDivider(modifier = modifier.fillMaxWidth(), thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -294,13 +329,15 @@ fun ReorderableCollectionItemScope.reorderableDragHandle(): Modifier {
 fun ReorderableListItem(
     scope: ReorderableCollectionItemScope,
     isDragging: Boolean,
+    card: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val scale by reorderableScale(isDragging)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer { scaleX = scale; scaleY = scale },
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .then(if (card) Modifier.listCard() else Modifier),
         color = Color.Transparent
     ) {
         Row(
