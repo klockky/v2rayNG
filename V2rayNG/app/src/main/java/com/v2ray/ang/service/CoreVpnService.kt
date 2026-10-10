@@ -5,72 +5,34 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.ProxyInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.StrictMode
-import androidx.annotation.RequiresApi
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.AppConfig.LOOPBACK
 import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.contracts.ServiceControl
 import com.v2ray.ang.contracts.Tun2SocksControl
 import com.v2ray.ang.core.CoreServiceManager
+import com.v2ray.ang.handler.AppLocaleManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.NotificationManager
 import com.v2ray.ang.handler.SettingsManager
+import com.v2ray.ang.root.RootLanSharing
 import com.v2ray.ang.util.LogUtil
-import com.v2ray.ang.util.MyContextWrapper
 import com.v2ray.ang.util.Utils
 import java.lang.ref.SoftReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 @SuppressLint("VpnServicePolicy")
 class CoreVpnService : VpnService(), ServiceControl {
     private lateinit var mInterface: ParcelFileDescriptor
     private var isRunning = false
     private var tun2SocksService: Tun2SocksControl? = null
-
-    /**destroy
-     * Unfortunately registerDefaultNetworkCallback is going to return our VPN interface: https://android.googlesource.com/platform/frameworks/base/+/dda156ab0c5d66ad82bdcf76cda07cbc0a9c8a2e
-     *
-     * This makes doing a requestNetwork with REQUEST necessary so that we don't get ALL possible networks that
-     * satisfies default network capabilities but only THE default network. Unfortunately we need to have
-     * android.permission.CHANGE_NETWORK_STATE to be able to call requestNetwork.
-     *
-     * Source: https://android.googlesource.com/platform/frameworks/base/+/2df4c7d/services/core/java/com/android/server/ConnectivityService.java#887
-     */
-    @delegate:RequiresApi(Build.VERSION_CODES.P)
-    private val defaultNetworkRequest by lazy {
-        NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-            .build()
-    }
-
-    private val connectivity by lazy { getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager }
-
-    @delegate:RequiresApi(Build.VERSION_CODES.P)
-    private val defaultNetworkCallback by lazy {
-        object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                setUnderlyingNetworks(arrayOf(network))
-            }
-
-            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                // it's a good idea to refresh capabilities
-                setUnderlyingNetworks(arrayOf(network))
-            }
-
-            override fun onLost(network: Network) {
-                setUnderlyingNetworks(null)
-            }
-        }
-    }
+    private val isStartingLock = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -108,16 +70,31 @@ class CoreVpnService : VpnService(), ServiceControl {
             }
         }
 
+        unlockStart()
         NotificationManager.cancelNotification()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        LogUtil.i(AppConfig.TAG, "StartCore-VPN: Service command received")
-        NotificationManager.showNotification(null)
-        setupVpnService()
+        NotificationManager.ensureForeground()
+        // Always-on VPN restarts from OS deliver intent.action == SERVICE_INTERFACE or null intent.
+        // Reset any stuck start lock left by a killed process to allow setupVpnService() to run.
+        val isSystemVpnStart = intent == null || intent.action == SERVICE_INTERFACE
+        if (isSystemVpnStart) {
+            unlockStart()
+        }
+        if (!tryLockStart()) {
+            LogUtil.w(AppConfig.TAG, "StartCore-VPN: Start already in progress")
+            return START_NOT_STICKY
+        }
+        LogUtil.i(AppConfig.TAG, "StartCore-VPN: Service command received, systemVpnStart=$isSystemVpnStart")
+        if (!setupVpnService()) {
+            unlockStart()
+            // Stop service if setup fails to avoid infinite restart loops (START_STICKY)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         startService()
         return START_STICKY
-        //return super.onStartCommand(intent, flags, startId)
     }
 
     override fun getService(): Service {
@@ -134,6 +111,9 @@ class CoreVpnService : VpnService(), ServiceControl {
             stopAllService()
             return
         }
+
+        // Start LAN sharing if enabled in settings
+        RootLanSharing.startClientSharing(this)
     }
 
     override fun stopService() {
@@ -144,10 +124,12 @@ class CoreVpnService : VpnService(), ServiceControl {
         return protect(socket)
     }
 
+    override fun setUnderlyingNetworks(networks: Array<Network>?): Boolean {
+        return super<VpnService>.setUnderlyingNetworks(networks)
+    }
+
     override fun attachBaseContext(newBase: Context?) {
-        val context = newBase?.let {
-            MyContextWrapper.wrap(newBase, SettingsManager.getLocale())
-        }
+        val context = newBase?.let(AppLocaleManager::localizedContext)
         super.attachBaseContext(context)
     }
 
@@ -155,21 +137,20 @@ class CoreVpnService : VpnService(), ServiceControl {
      * Sets up the VPN service.
      * Prepares the VPN and configures it if preparation is successful.
      */
-    private fun setupVpnService() {
+    private fun setupVpnService(): Boolean {
         val prepare = prepare(this)
         if (prepare != null) {
             LogUtil.e(AppConfig.TAG, "StartCore-VPN: Permission not granted")
-            stopSelf()
-            return
+            return false
         }
 
         if (configureVpnService() != true) {
             LogUtil.e(AppConfig.TAG, "StartCore-VPN: Configuration failed")
-            stopSelf()
-            return
+            return false
         }
 
         runTun2socks()
+        return true
     }
 
     /**
@@ -263,15 +244,6 @@ class CoreVpnService : VpnService(), ServiceControl {
      * @param builder The VPN Builder to configure
      */
     private fun configurePlatformFeatures(builder: Builder) {
-        // Android P (API 28) and above: Configure network callbacks
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            try {
-                connectivity.requestNetwork(defaultNetworkRequest, defaultNetworkCallback)
-            } catch (e: Exception) {
-                LogUtil.e(AppConfig.TAG, "StartCore-VPN: Failed to request network", e)
-            }
-        }
-
         // Android Q (API 29) and above: Configure metering and HTTP proxy
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
@@ -350,17 +322,13 @@ class CoreVpnService : VpnService(), ServiceControl {
 //        val emptyInfo = VpnNetworkInfo()
 //        val info = loadVpnNetworkInfo(configName, emptyInfo)!! + (lastNetworkInfo ?: emptyInfo)
 //        saveVpnNetworkInfo(configName, info)
+        unlockStart()
         isRunning = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            try {
-                connectivity.unregisterNetworkCallback(defaultNetworkCallback)
-            } catch (e: Exception) {
-                LogUtil.w(AppConfig.TAG, "StartCore-VPN: Failed to unregister callback", e)
-            }
-        }
 
         tun2SocksService?.stopTun2Socks()
         tun2SocksService = null
+
+        RootLanSharing.stopClientSharing(this)
 
         CoreServiceManager.stopCoreLoop()
 
@@ -391,5 +359,14 @@ class CoreVpnService : VpnService(), ServiceControl {
             }
         }
     }
-}
 
+    fun tryLockStart(): Boolean {
+        LogUtil.w(AppConfig.TAG, "StartCore-VPN: tryLockStart: ${isStartingLock.get()}")
+        return isStartingLock.compareAndSet(false, true)
+    }
+
+    fun unlockStart() {
+        isStartingLock.set(false)
+        LogUtil.w(AppConfig.TAG, "StartCore-VPN: unlockStart")
+    }
+}

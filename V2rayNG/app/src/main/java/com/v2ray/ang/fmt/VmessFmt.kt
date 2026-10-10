@@ -8,7 +8,6 @@ import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.enums.NetworkType
 import com.v2ray.ang.extension.idnHost
 import com.v2ray.ang.extension.nullIfBlank
-import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.util.JsonUtil
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -88,6 +87,9 @@ object VmessFmt : FmtBase() {
             "0" -> false
             else -> false
         }
+        config.verifyPeerCertByName = vmessQRCode.vcn
+        config.pinnedCA256 = vmessQRCode.pcs
+
         return config
     }
 
@@ -141,6 +143,8 @@ object VmessFmt : FmtBase() {
             false -> "0"
             else -> ""
         }
+        vmessQRCode.vcn = config.verifyPeerCertByName.orEmpty()
+        vmessQRCode.pcs = config.pinnedCA256.orEmpty()
 
         val json = JsonUtil.toJson(vmessQRCode)
         return Utils.encode(json)

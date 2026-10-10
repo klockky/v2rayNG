@@ -7,6 +7,7 @@ import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSerializationContext
 import com.google.gson.JsonSerializer
+import com.google.gson.ToNumberPolicy
 import com.google.gson.reflect.TypeToken
 import com.v2ray.ang.AppConfig
 import java.lang.reflect.Type
@@ -64,12 +65,15 @@ object JsonUtil {
         val gsonPre = GsonBuilder()
             .setPrettyPrinting()
             .disableHtmlEscaping()
+            .setObjectToNumberStrategy(ToNumberPolicy.LONG_OR_DOUBLE)
             .registerTypeAdapter( // custom serializer is needed here since JSON by default parse number as Double, core will fail to start
                 object : TypeToken<Double>() {}.type,
                 JsonSerializer { src: Double?, _: Type?, _: JsonSerializationContext? ->
-                    JsonPrimitive(
-                        src?.toInt()
-                    )
+                    when (src) {
+                        null -> null
+                        src.toLong().toDouble() -> JsonPrimitive(src.toLong())
+                        else -> JsonPrimitive(src)
+                    }
                 }
             )
             .create()
@@ -91,5 +95,24 @@ object JsonUtil {
             LogUtil.e(AppConfig.TAG, "Failed to parse JSON string", e)
             return null
         }
+    }
+
+    fun parseHeadersToMap(headersJson: String?): Map<String, String> {
+        val headerMap = mutableMapOf<String, String>()
+        val jsonObject = parseString(headersJson) ?: return headerMap
+        try {
+            for ((key, jsonElement) in jsonObject.entrySet()) {
+                if (key.isNullOrBlank() || jsonElement == null || jsonElement.isJsonNull) {
+                    continue
+                }
+                val value = if (jsonElement.isJsonPrimitive) jsonElement.asString else jsonElement.toString()
+                if (value.isNotBlank()) {
+                    headerMap[key] = value
+                }
+            }
+        } catch (e: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to parse headers JSON", e)
+        }
+        return headerMap
     }
 }

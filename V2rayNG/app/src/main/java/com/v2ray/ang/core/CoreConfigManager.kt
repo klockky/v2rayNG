@@ -3,6 +3,7 @@ package com.v2ray.ang.core
 import android.content.Context
 import android.text.TextUtils
 import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.dto.ConfigResult
 import com.v2ray.ang.dto.CoreConfigContext
@@ -33,7 +34,11 @@ object CoreConfigManager {
     fun getV2rayConfig(context: Context, guid: String): ConfigResult {
         try {
             val configContext = CoreConfigContextBuilder.build(context, guid)
-                ?: return ConfigResult(status = false, guid = guid, errorMessage = "Failed to build config context")
+                ?: return ConfigResult(
+                    status = false,
+                    guid = guid,
+                    errorMessage = "Failed to build config context"
+                )
             if (configContext.isCustom) {
                 return buildV2rayCustomConfig(configContext)
             }
@@ -56,7 +61,11 @@ object CoreConfigManager {
     fun getV2rayConfig4Speedtest(context: Context, guid: String): ConfigResult {
         try {
             val configContext = CoreConfigContextBuilder.build(context, guid)
-                ?: return ConfigResult(status = false, guid = guid, errorMessage = "Failed to build config context")
+                ?: return ConfigResult(
+                    status = false,
+                    guid = guid,
+                    errorMessage = "Failed to build config context"
+                )
             if (configContext.isCustom) {
                 return buildV2rayCustomConfig(configContext)
             }
@@ -69,7 +78,7 @@ object CoreConfigManager {
             return ConfigResult(
                 status = false,
                 guid = guid,
-                errorMessage = "Failed to get V2ray config for speedtest: ${e.message ?: e.javaClass.simpleName}"
+                errorMessage = "Failed to get V2ray config: ${e.message ?: e.javaClass.simpleName}"
             )
         }
     }
@@ -80,13 +89,42 @@ object CoreConfigManager {
     private fun buildV2rayCustomConfig(configContext: CoreConfigContext): ConfigResult {
         val context = configContext.context
         val raw = MmkvManager.decodeServerRaw(configContext.guid)
-            ?: return ConfigResult(status = false, guid = configContext.guid, errorMessage = "Custom config is empty")
+            ?: return ConfigResult(
+                status = false,
+                guid = configContext.guid,
+                errorMessage = "Failed to build config context, config is empty"
+            )
         val result = ConfigResult(true, configContext.guid, raw)
-        if (!needTun()) {
-            return result
-        }
 
         val json = JsonUtil.parseString(raw)?.takeIf { it.isJsonObject }?.asJsonObject ?: return result
+
+        // Inject or remove traffic statistics configuration based on user preference
+        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) == true) {
+            if (!json.has("stats")) {
+                json.add("stats", JsonObject())
+            }
+            if (!json.has("policy")) {
+                val policyObj = JsonObject()
+                val systemObj = JsonObject()
+                systemObj.addProperty("statsOutboundUplink", true)
+                systemObj.addProperty("statsOutboundDownlink", true)
+                policyObj.add("system", systemObj)
+                json.add("policy", policyObj)
+            }
+        } else {
+            json.remove("stats")
+            // Keep user-defined policy levels, only strip the stats-related system block
+            json.get("policy")?.takeIf { it.isJsonObject }?.asJsonObject?.let { policy ->
+                policy.remove("system")
+                if (policy.entrySet().isEmpty()) {
+                    json.remove("policy")
+                }
+            }
+        }
+
+        if (!needTun()) {
+            return JsonUtil.toJsonPretty(json)?.let { ConfigResult(true, configContext.guid, it) } ?: result
+        }
 
         // Check whether package names need to be replaced with UIDs
         if (SettingsManager.canUseProcessRouting()) {
@@ -166,8 +204,9 @@ object CoreConfigManager {
         // User routing rules (policyGroupBalancerTags rewrites TAG_PROXY→balancer when main is POLICYGROUP).
         configureRouting(configContext, v2rayConfig, policyGroupBalancerTags)
         configureFakeDns(v2rayConfig)
-        configureDns(v2rayConfig, policyGroupBalancerTags)
-        configureLocalDns(v2rayConfig)
+        configureDns(configContext, v2rayConfig, policyGroupBalancerTags)
+        configureLocalDns(configContext, v2rayConfig)
+        configureRootModeDns(v2rayConfig)
 
         // (added by getDns / getCustomLocalDns) to use the balancer, then add
         // the catch-all balancer rule.
@@ -373,10 +412,13 @@ object CoreConfigManager {
         } else {
             "${AppConfig.TAG_BALANCER_PRE}-${resolvedOutbound.tag}"
         }
+        val strategyType = BalancerStrategyType.from(resolvedOutbound.profile.policyGroupType)
+        val fallbackTag = resolvePolicyGroupFallbackTag(strategyType, resolvedOutbound.profile, membersToAdd.first().tag)
         val strategy = buildBalancerStrategy(
-            policyGroupType = resolvedOutbound.profile.policyGroupType,
+            strategyType = strategyType,
             selector = listOf(memberTagPrefix),
             balancerTag = balancerTag,
+            fallbackTag = fallbackTag,
         )
         val existingBalancers = v2rayConfig.routing.balancers?.toMutableList() ?: mutableListOf()
         if (existingBalancers.none { it.tag == balancerTag }) {
@@ -386,6 +428,27 @@ object CoreConfigManager {
         balancerStrategies.add(strategy)
         policyGroupBalancerTags[resolvedOutbound.tag] = balancerTag
     }
+
+    internal fun resolvePolicyGroupFallbackTag(
+        strategyType: BalancerStrategyType,
+        profile: ProfileItem,
+        firstMemberTag: String,
+    ): String? {
+        if (strategyType.requiresObservatory || strategyType.requiresBurstObservatory) {
+            // Missing or failed probes must not let a matched rule use Xray's default outbound.
+            return firstMemberTag
+        }
+        return if (strategyType.supportsObservatory && profile.policyGroupTestOutbounds != false) {
+            profile.policyGroupFallbackTag
+                ?.takeIf { it.isNotEmpty() && it != AppConfig.TAG_PROXY }
+            // Xray excludes dead random/roundRobin candidates only when fallbackTag is set;
+            // without this default, an enabled empty field creates no observatory.
+                ?: firstMemberTag
+        } else null
+    }
+
+    internal fun shouldUseStandardObservatory(strategyType: BalancerStrategyType, fallbackTag: String?): Boolean =
+        strategyType.requiresObservatory || (strategyType.supportsObservatory && fallbackTag != null)
 
     /**
      * Trim runtime sections that are not needed for latency testing.
@@ -452,8 +515,10 @@ object CoreConfigManager {
         val vpn = SettingsManager.isVpnMode()
         val useHev = SettingsManager.isUsingHevTun()
         val forcedByHev = vpn && useHev
+        val forcedBySocksRoot = SettingsManager.isRootMode()
+                || MmkvManager.decodeSettingsBool(AppConfig.PREF_ROOT_LAN_SHARING)
 
-        val enableLocalProxy = forcedByHev || MmkvManager.decodeSettingsBool(AppConfig.PREF_ENABLE_LOCAL_PROXY, true)
+        val enableLocalProxy = forcedByHev || forcedBySocksRoot || MmkvManager.decodeSettingsBool(AppConfig.PREF_ENABLE_LOCAL_PROXY, true)
 
         val socksPort = SettingsManager.getSocksPort()
         val socksUsername = SettingsManager.getSocksUsername()
@@ -467,7 +532,7 @@ object CoreConfigManager {
             inbound1.listen = AppConfig.LOOPBACK
         }
         inbound1.port = socksPort
-        inbound1.settings?.udp = MmkvManager.decodeSettingsBool(AppConfig.PREF_SOCKS_ENABLE_UDP, true)
+        inbound1.settings?.udp = MmkvManager.decodeSettingsBool(AppConfig.PREF_SOCKS_ENABLE_UDP, AppConfig.DEFAULT_SOCKS_ENABLE_UDP)
         if (socksUsername != null && socksPassword != null) {
             inbound1.settings?.auth = "password"
             inbound1.settings?.accounts = listOf(
@@ -567,16 +632,20 @@ object CoreConfigManager {
     /**
      * Configure local DNS inbounds, outbounds, and routing rules.
      */
-    private fun configureLocalDns(v2rayConfig: V2rayConfig) {
+    private fun configureLocalDns(configContext: CoreConfigContext, v2rayConfig: V2rayConfig) {
         if (MmkvManager.decodeSettingsBool(AppConfig.PREF_LOCAL_DNS_ENABLED) != true) {
             return
         }
 
         if (MmkvManager.decodeSettingsBool(AppConfig.PREF_FAKE_DNS_ENABLED) == true) {
             val geositeCn = arrayListOf(AppConfig.GEOSITE_CN)
-            val proxyDomain = collectUserRuleDomainsByTag(AppConfig.TAG_PROXY)
-            val directDomain = collectUserRuleDomainsByTag(AppConfig.TAG_DIRECT)
-            val finalDomain = geositeCn.plus(proxyDomain).plus(directDomain).distinct()
+            val routingDomains = configContext.routingDomainRules
+                .asSequence()
+                .filter { it.outboundTag != AppConfig.TAG_BLOCKED }
+                .flatMap { it.domain.asSequence() }
+                .toList()
+                .distinct()
+            val finalDomain = geositeCn + routingDomains
             // fakedns with all domains to make it always top priority
             v2rayConfig.dns?.servers?.add(
                 0,
@@ -623,15 +692,49 @@ object CoreConfigManager {
     }
 
     /**
+     * In the root mode the whole device's traffic (incl. raw DNS) is funneled
+     * into the core's SOCKS inbound, exactly like the VPN+hev path. Hijack port-53 to the
+     * core's DNS module so queries are resolved via the configured resolver through the
+     * proxy instead of leaking to (or being mis-resolved by) the local network resolver.
+     * Independent of the local-DNS toggle, which is not exposed for root mode.
+     */
+    private fun configureRootModeDns(v2rayConfig: V2rayConfig) {
+        if (!SettingsManager.isRootMode()) return
+
+        if (v2rayConfig.routing.rules.none { it.outboundTag == "dns-out" && it.port == "53" }) {
+            v2rayConfig.routing.rules.add(
+                0,
+                V2rayConfig.RoutingBean.RulesBean(
+                    inboundTag = arrayListOf("socks"),
+                    outboundTag = "dns-out",
+                    port = "53",
+                )
+            )
+        }
+        if (v2rayConfig.outbounds.none { it.protocol == "dns" && it.tag == "dns-out" }) {
+            v2rayConfig.outbounds.add(
+                V2rayConfig.OutboundBean(
+                    protocol = "dns",
+                    tag = "dns-out",
+                    settings = null,
+                    streamSettings = null,
+                    mux = null
+                )
+            )
+        }
+    }
+
+    /**
      * Remove speed-test runtime sections when the feature is disabled.
      */
     private fun applySpeedDisabled(v2rayConfig: V2rayConfig) {
         if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SPEED_ENABLED) != true) {
             v2rayConfig.stats = null
-            v2rayConfig.policy = null
+            v2rayConfig.policy?.system = null
         }
     }
 
+    /*
     /**
      * Configure DNS servers, hosts, and DNS routing rules.
      */
@@ -771,7 +874,194 @@ object CoreConfigManager {
             )
         }
     }
+    */
 
+    /**
+     * Configure DNS servers, hosts, and DNS routing rules.
+     */
+    private fun configureDns(
+        configContext: CoreConfigContext,
+        v2rayConfig: V2rayConfig,
+        policyGroupBalancerTags: Map<String, String>,
+    ) {
+        val servers = ArrayList<Any>()
+        val remoteDns = SettingsManager.getRemoteDnsServers()
+        val domesticDns = SettingsManager.getDomesticDnsServers()
+
+        remoteDns.forEach { servers.add(it) }
+
+        val hosts = buildDnsHostsFromRoutingRules(configContext)
+        val cnDomesticDnsTags = buildDnsCnModeFromRoutingRules(configContext, servers, domesticDns)
+        val domesticDnsTags = buildDnsFromRoutingRules(
+            configContext = configContext,
+            servers = servers,
+            remoteDns = remoteDns,
+            domesticDns = domesticDns
+        )
+        domesticDnsTags.addAll(cnDomesticDnsTags)
+
+        v2rayConfig.dns = V2rayConfig.DnsBean(
+            servers = servers,
+            hosts = hosts,
+            tag = AppConfig.TAG_DNS,
+            enableParallelQuery = if ((domesticDns.size + remoteDns.size) > 2) true else null
+        )
+
+        if (domesticDnsTags.isNotEmpty()) {
+            v2rayConfig.routing.rules.add(
+                V2rayConfig.RoutingBean.RulesBean(
+                    outboundTag = AppConfig.TAG_DIRECT,
+                    inboundTag = ArrayList(domesticDnsTags),
+                    domain = null
+                )
+            )
+        }
+
+        val dnsProxyBalancerTag = policyGroupBalancerTags[AppConfig.TAG_PROXY]
+        if (dnsProxyBalancerTag != null) {
+            v2rayConfig.routing.rules.add(
+                V2rayConfig.RoutingBean.RulesBean(
+                    balancerTag = dnsProxyBalancerTag,
+                    inboundTag = arrayListOf(AppConfig.TAG_DNS),
+                    domain = null
+                )
+            )
+        } else {
+            v2rayConfig.routing.rules.add(
+                V2rayConfig.RoutingBean.RulesBean(
+                    outboundTag = AppConfig.TAG_PROXY,
+                    inboundTag = arrayListOf(AppConfig.TAG_DNS),
+                    domain = null
+                )
+            )
+        }
+    }
+
+    private fun buildDnsHostsFromRoutingRules(configContext: CoreConfigContext): MutableMap<String, Any> {
+        val hosts = mutableMapOf<String, Any>()
+
+        val blockDomains = configContext.routingDomainRules
+            .asSequence()
+            .filter { it.outboundTag == AppConfig.TAG_BLOCKED }
+            .flatMap { it.domain.asSequence() }
+            .toList()
+        if (blockDomains.isNotEmpty()) {
+            hosts.putAll(blockDomains.map { it to AppConfig.LOOPBACK })
+        }
+
+        hosts[AppConfig.GOOGLEAPIS_CN_DOMAIN] = AppConfig.GOOGLEAPIS_COM_DOMAIN
+        hosts[AppConfig.DNS_ALIDNS_DOMAIN] = AppConfig.DNS_ALIDNS_ADDRESSES
+        hosts[AppConfig.DNS_CISCO_SSE_DOMAIN] = AppConfig.DNS_CISCO_SSE_ADDRESSES
+        hosts[AppConfig.DNS_CISCO_UMBRELLA_DOMAIN] = AppConfig.DNS_CISCO_UMBRELLA_ADDRESSES
+        hosts[AppConfig.DNS_CLOUDFLARE_ONE_DOMAIN] = AppConfig.DNS_CLOUDFLARE_ONE_ADDRESSES
+        hosts[AppConfig.DNS_CLOUDFLARE_ONEDOT_DNS_DOMAIN] = AppConfig.DNS_CLOUDFLARE_ONEDOT_DNS_ADDRESSES
+        hosts[AppConfig.DNS_CLOUDFLARE_DNS_COM_DOMAIN] = AppConfig.DNS_CLOUDFLARE_DNS_COM_ADDRESSES
+        hosts[AppConfig.DNS_CLOUDFLARE_DNS_DOMAIN] = AppConfig.DNS_CLOUDFLARE_DNS_ADDRESSES
+        hosts[AppConfig.DNS_CLOUDFLARE_WARP_DOMAIN] = AppConfig.DNS_CLOUDFLARE_WARP_ADDRESSES
+        hosts[AppConfig.DNS_DNSPOD_DOH_DOMAIN] = AppConfig.DNS_DNSPOD_DOH_ADDRESSES
+        hosts[AppConfig.DNS_DNSPOD_DOT_DOMAIN] = AppConfig.DNS_DNSPOD_DOT_ADDRESSES
+        hosts[AppConfig.DNS_GOOGLE_DOMAIN] = AppConfig.DNS_GOOGLE_ADDRESSES
+        hosts[AppConfig.DNS_QUAD9_DOMAIN] = AppConfig.DNS_QUAD9_ADDRESSES
+        hosts[AppConfig.DNS_SB_DOMAIN] = AppConfig.DNS_SB_ADDRESSES
+        hosts[AppConfig.DNS_YANDEX_DOMAIN] = AppConfig.DNS_YANDEX_ADDRESSES
+
+        val userHosts = MmkvManager.decodeSettingsString(AppConfig.PREF_DNS_HOSTS)
+        if (userHosts.isNotNullEmpty()) {
+            val userHostsMap = userHosts?.split(",").orEmpty()
+                .filter { it.isNotBlank() && it.contains(":") }
+                .associate {
+                    // Use limit = 2 to split only at the first colon.
+                    // This ensures that IPv6 addresses (which contain multiple colons)
+                    // are preserved entirely in the second part.
+                    val parts = it.split(":", limit = 2)
+                    parts[0].trim() to parts[1].trim()
+                }
+            hosts.putAll(userHostsMap)
+        }
+
+        return hosts
+    }
+
+    private fun buildDnsCnModeFromRoutingRules(configContext: CoreConfigContext, servers: ArrayList<Any>, domesticDns: List<String>): List<String> {
+        val cnRegionFilter = { domain: String ->
+            domain.startsWith("geosite:") && (domain.endsWith("-cn") || domain.endsWith("@cn"))
+                    || domain == AppConfig.GEOSITE_CN
+        }
+        val isCnRoutingMode = configContext.routingDomainRules
+            .asSequence()
+            .filter { it.outboundTag == AppConfig.TAG_DIRECT }
+            .flatMap { it.domain.asSequence() }
+            .any { it == AppConfig.GEOSITE_CN }
+
+        if (!isCnRoutingMode) {
+            return emptyList()
+        }
+
+        val geoipCn = arrayListOf(AppConfig.GEOIP_CN)
+        val cnDomains = configContext.routingDomainRules
+            .asSequence()
+            .filter { it.outboundTag == AppConfig.TAG_DIRECT }
+            .flatMap { it.domain.asSequence() }
+            .filter { cnRegionFilter(it) }
+            .toList()
+        if (cnDomains.isEmpty()) {
+            return emptyList()
+        }
+
+        val cnDomesticDnsTags = mutableListOf<String>()
+        domesticDns.forEachIndexed { index, address ->
+            val cnDomesticDnsTag = "${AppConfig.TAG_DOMESTIC_DNS}_cn_expect_${index}"
+            servers.add(
+                V2rayConfig.DnsBean.ServersBean(
+                    address = address,
+                    domains = cnDomains,
+                    expectIPs = geoipCn,
+                    skipFallback = true,
+                    tag = cnDomesticDnsTag
+                )
+            )
+            cnDomesticDnsTags.add(cnDomesticDnsTag)
+        }
+        return cnDomesticDnsTags
+    }
+
+    private fun buildDnsFromRoutingRules(
+        configContext: CoreConfigContext,
+        servers: ArrayList<Any>,
+        remoteDns: List<String>,
+        domesticDns: List<String>,
+    ): MutableList<String> {
+        val domesticDnsTags = mutableListOf<String>()
+        configContext.routingDomainRules.forEachIndexed { ruleIndex, rule ->
+            when (rule.outboundTag) {
+                AppConfig.TAG_DIRECT -> {
+                    domesticDns.forEachIndexed { dnsIndex, address ->
+                        val tag = "${AppConfig.TAG_DOMESTIC_DNS}_${ruleIndex}_$dnsIndex"
+                        servers.add(
+                            V2rayConfig.DnsBean.ServersBean(
+                                address = address,
+                                domains = rule.domain,
+                                skipFallback = true,
+                                tag = tag
+                            )
+                        )
+                        domesticDnsTags.add(tag)
+                    }
+                }
+
+                AppConfig.TAG_BLOCKED -> Unit
+                else -> {
+                    servers.add(
+                        V2rayConfig.DnsBean.ServersBean(
+                            address = remoteDns.first(),
+                            domains = rule.domain,
+                        )
+                    )
+                }
+            }
+        }
+        return domesticDnsTags
+    }
 
     //endregion
 
@@ -783,7 +1073,7 @@ object CoreConfigManager {
      * Resolve outbound domains to IPs and write resolved hosts to DNS map.
      */
     private fun resolveOutboundDomainsToHosts(v2rayConfig: V2rayConfig) {
-        if (MmkvManager.decodeSettingsString(AppConfig.PREF_OUTBOUND_DOMAIN_RESOLVE_METHOD, "1") != "1") {
+        if (MmkvManager.decodeSettingsString(AppConfig.PREF_OUTBOUND_DOMAIN_RESOLVE_METHOD, AppConfig.DEFAULT_OUTBOUND_DOMAIN_RESOLVE_METHOD) != "1") {
             return
         }
 
@@ -957,22 +1247,28 @@ object CoreConfigManager {
      * Build balancer and probe settings from one policy-group strategy value.
      */
     private fun buildBalancerStrategy(
-        policyGroupType: String?,
+        strategyType: BalancerStrategyType,
         selector: List<String>,
         balancerTag: String = AppConfig.TAG_BALANCER,
+        fallbackTag: String? = null,
     ): BalancerStrategy {
         val probeUrl = MmkvManager.decodeSettingsString(AppConfig.PREF_DELAY_TEST_URL) ?: AppConfig.DELAY_TEST_URL
-        val strategyType = BalancerStrategyType.from(policyGroupType)
+        val leastPingInterval = decodeObservatoryDuration(AppConfig.PREF_OBSERVATORY_LEAST_PING_INTERVAL, AppConfig.OBSERVATORY_LEAST_PING_INTERVAL)
+        val leastLoadInterval = decodeObservatoryDuration(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_INTERVAL, AppConfig.OBSERVATORY_LEAST_LOAD_INTERVAL)
+        val leastLoadMethod = MmkvManager.decodeSettingsString(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_METHOD, AppConfig.OBSERVATORY_LEAST_LOAD_METHOD)
+        val leastLoadSampling = decodeObservatorySampling()
+        val leastLoadTimeout = decodeObservatoryDuration(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_TIMEOUT, AppConfig.OBSERVATORY_LEAST_LOAD_TIMEOUT)
         val balancer = V2rayConfig.RoutingBean.BalancerBean(
             tag = balancerTag,
             selector = selector,
+            fallbackTag = fallbackTag,
             strategy = V2rayConfig.RoutingBean.StrategyObject(type = strategyType.policyGroupType)
         )
-        val observatory = if (strategyType.requiresObservatory) {
+        val observatory = if (shouldUseStandardObservatory(strategyType, fallbackTag)) {
             V2rayConfig.ObservatoryObject(
                 subjectSelector = selector,
                 probeUrl = probeUrl,
-                probeInterval = "3m",
+                probeInterval = leastPingInterval,
                 enableConcurrency = true
             )
         } else null
@@ -981,13 +1277,31 @@ object CoreConfigManager {
                 subjectSelector = selector,
                 pingConfig = V2rayConfig.BurstObservatoryObject.PingConfigObject(
                     destination = probeUrl,
-                    interval = "5m",
-                    sampling = 2,
-                    timeout = "30s"
+                    httpMethod = leastLoadMethod,
+                    interval = leastLoadInterval,
+                    sampling = leastLoadSampling,
+                    timeout = leastLoadTimeout
                 )
             )
         } else null
         return BalancerStrategy(balancer, observatory, burstObservatory)
+    }
+
+    private fun decodeObservatoryDuration(key: String, default: String): String {
+        val value = MmkvManager.decodeSettingsString(key)?.trim()
+        return if (!value.isNullOrEmpty() && AppConfig.OBSERVATORY_DURATION_PATTERN.matches(value)) {
+            value
+        } else {
+            default
+        }
+    }
+
+    private fun decodeObservatorySampling(): Int {
+        return MmkvManager.decodeSettingsString(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_SAMPLING)
+            ?.trim()
+            ?.toIntOrNull()
+            ?.takeIf { it > 0 }
+            ?: AppConfig.OBSERVATORY_LEAST_LOAD_SAMPLING.toInt()
     }
 
     /**

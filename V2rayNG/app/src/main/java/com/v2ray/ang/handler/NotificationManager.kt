@@ -1,7 +1,6 @@
 package com.v2ray.ang.handler
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -15,13 +14,14 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.core.CoreServiceManager
 import com.v2ray.ang.dto.entities.ProfileItem
+import com.v2ray.ang.extension.delay
 import com.v2ray.ang.extension.toSpeedString
-import com.v2ray.ang.ui.MainActivity
+import com.v2ray.ang.helper.NotificationHelper
+import com.v2ray.ang.ui.main.MainActivity
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.min
@@ -93,8 +93,8 @@ object NotificationManager {
 
         mBuilder = NotificationCompat.Builder(service, channelId)
             .setSmallIcon(R.drawable.ic_stat_name)
-            .setContentTitle(currentConfig?.remarks)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setContentTitle(currentConfig?.remarks ?: service.getString(R.string.app_name))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
@@ -105,7 +105,7 @@ object NotificationManager {
                 stopV2RayPendingIntent
             )
             .addAction(
-                R.drawable.ic_delete_24dp,
+                R.drawable.ic_restore_24dp,
                 service.getString(R.string.title_service_restart),
                 restartV2RayPendingIntent
             )
@@ -113,6 +113,17 @@ object NotificationManager {
         //mBuilder?.setDefaults(NotificationCompat.FLAG_ONLY_ALERT_ONCE)
 
         service.startForeground(NOTIFICATION_ID, mBuilder?.build())
+    }
+
+    /**
+     * Fulfills or refreshes the foreground-service contract before a start command can
+     * return early. A duplicate startForegroundService call still requires the service
+     * to enter foreground state promptly, even when the core is already running.
+     */
+    fun ensureForeground() {
+        val service = getService() ?: return
+        val notification = mBuilder?.build()
+        if (notification == null) showNotification(null) else service.startForeground(NOTIFICATION_ID, notification)
     }
 
     /**
@@ -146,15 +157,17 @@ object NotificationManager {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotificationChannel(): String {
         val channelId = AppConfig.RAY_NG_CHANNEL_ID
-        val channelName = AppConfig.RAY_NG_CHANNEL_NAME
-        val chan = NotificationChannel(
-            channelId,
-            channelName, NotificationManager.IMPORTANCE_HIGH
-        )
-        chan.lightColor = Color.DKGRAY
-        chan.importance = NotificationManager.IMPORTANCE_NONE
-        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        getNotificationManager()?.createNotificationChannel(chan)
+        val service = getService() ?: return channelId
+        NotificationHelper.ensureNotificationChannel(
+            context = service,
+            channelId = channelId,
+            channelNameRes = R.string.notification_channel_service,
+            // Foreground-service notifications must remain visible; LOW is silent but valid.
+            importance = NotificationManager.IMPORTANCE_LOW,
+        ) {
+            lightColor = Color.DKGRAY
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+        }
         return channelId
     }
 
@@ -240,7 +253,8 @@ object NotificationManager {
                     }
                 }
 
-                stat.tag.startsWith(AppConfig.TAG_PROXY) -> {
+                // Accumulate stats for all proxy outbounds (including custom subscription tags)
+                stat.tag != AppConfig.TAG_BLOCKED -> {
                     when (stat.direction) {
                         AppConfig.UPLINK -> proxyUplink += stat.value
                         AppConfig.DOWNLINK -> proxyDownlink += stat.value

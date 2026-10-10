@@ -1,9 +1,9 @@
 package com.v2ray.ang.helper
 
 import android.content.pm.PackageManager
+import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.v2ray.ang.R
 import com.v2ray.ang.enums.PermissionType
@@ -12,7 +12,7 @@ import com.v2ray.ang.extension.toast
 /**
  * Helper for requesting permissions.
  */
-class PermissionHelper(private val activity: AppCompatActivity) {
+class PermissionHelper(private val activity: ComponentActivity) {
     private var permissionCallback: ((Boolean) -> Unit)? = null
 
     private val permissionLauncher: ActivityResultLauncher<String> =
@@ -36,7 +36,10 @@ class PermissionHelper(private val activity: AppCompatActivity) {
                 if (isGranted) {
                     onGranted()
                 } else {
-                    val message = "${activity.getString(R.string.toast_permission_denied)}  ${permissionType.getLabel()}"
+                    val message = activity.getString(
+                        R.string.toast_permission_denied_for,
+                        activity.getString(permissionType.getLabelRes())
+                    )
                     activity.toast(message)
                 }
             }
