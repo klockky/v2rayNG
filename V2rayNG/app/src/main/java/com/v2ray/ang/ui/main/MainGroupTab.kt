@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -34,12 +35,17 @@ fun GroupTabBar(
         selectedTabIndex = selectedIndex,
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+            .background(MaterialTheme.colorScheme.surface),
+        containerColor = MaterialTheme.colorScheme.surface,
+        divider = {},
         edgePadding = 16.dp,
         indicator = { tabPositions ->
-            TabRowDefaults.SecondaryIndicator(
+            TabRowDefaults.PrimaryIndicator(
                 modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
-                color = MaterialTheme.colorScheme.secondary
+                width = 32.dp,
+                height = 4.dp,
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
             )
         }
     ) {
@@ -77,9 +83,12 @@ private fun GroupTabItem(
         modifier = Modifier
             .widthIn(min = 56.dp)
             .heightIn(min = 48.dp),
+        selectedContentColor = MaterialTheme.colorScheme.primary,
+        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         text = {
             Text(
                 text = text,
+                style = if (selected) MaterialTheme.typography.titleSmallEmphasized else MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Ellipsis

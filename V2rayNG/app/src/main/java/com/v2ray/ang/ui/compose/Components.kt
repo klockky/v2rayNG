@@ -1,7 +1,7 @@
 package com.v2ray.ang.ui.compose
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
@@ -27,7 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +86,12 @@ fun AppTopBar(
                         placeholder = searchPlaceholder
                     )
                 } else {
-                    Text(text = title)
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLargeEmphasized,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             },
             navigationIcon = {
@@ -113,7 +119,12 @@ fun AppTopBar(
             enter = expandVertically(),
             exit = shrinkVertically()
         ) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondary)
+            LinearWavyProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -138,10 +149,10 @@ private fun SearchInputField(
                 unfocusedContainerColor = Color.Transparent,
                 focusedBorderColor = Color.Transparent,
                 unfocusedBorderColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.secondary,
+                cursorColor = MaterialTheme.colorScheme.primary,
                 selectionColors = TextSelectionColors(
-                    handleColor = MaterialTheme.colorScheme.secondary,
-                    backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                    handleColor = MaterialTheme.colorScheme.primary,
+                    backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                 )
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -214,7 +225,7 @@ fun AppListItem(
         Checkbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.secondary)
+            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
         )
     }
 }
@@ -262,9 +273,10 @@ fun VersionInfoBlock(
 }
 
 @Composable
-private fun reorderableElevation(isDragging: Boolean) = animateDpAsState(
-    targetValue = if (isDragging) 4.dp else 0.dp,
-    label = "ReorderableElevation"
+private fun reorderableScale(isDragging: Boolean) = animateFloatAsState(
+    targetValue = if (isDragging) 1.03f else 1f,
+    animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+    label = "ReorderableScale"
 )
 
 @Composable
@@ -284,10 +296,12 @@ fun ReorderableListItem(
     isDragging: Boolean,
     content: @Composable RowScope.() -> Unit
 ) {
-    val elevation by reorderableElevation(isDragging)
+    val scale by reorderableScale(isDragging)
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shadowElevation = elevation
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer { scaleX = scale; scaleY = scale },
+        color = Color.Transparent
     ) {
         Row(
             modifier = Modifier
@@ -305,12 +319,13 @@ fun ReorderableGridItem(
     isDragging: Boolean,
     content: @Composable () -> Unit
 ) {
-    val elevation by reorderableElevation(isDragging)
+    val scale by reorderableScale(isDragging)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .then(with(scope) { reorderableDragHandle() }),
-        shadowElevation = elevation
+        color = Color.Transparent
     ) {
         content()
     }

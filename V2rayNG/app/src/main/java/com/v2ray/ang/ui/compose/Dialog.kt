@@ -154,10 +154,10 @@ fun InputDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
-                            cursorColor = MaterialTheme.colorScheme.secondary,
+                            cursorColor = MaterialTheme.colorScheme.primary,
                             selectionColors = TextSelectionColors(
-                                handleColor = MaterialTheme.colorScheme.secondary,
-                                backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                                handleColor = MaterialTheme.colorScheme.primary,
+                                backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                             )
                         ),
                         modifier = Modifier.fillMaxWidth()

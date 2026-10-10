@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -60,10 +61,10 @@ fun FormTextField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.secondary,
+                cursorColor = MaterialTheme.colorScheme.primary,
                 selectionColors = TextSelectionColors(
-                    handleColor = MaterialTheme.colorScheme.secondary,
-                    backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                    handleColor = MaterialTheme.colorScheme.primary,
+                    backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                 )
             ),
             modifier = Modifier.fillMaxWidth()
@@ -114,10 +115,10 @@ fun FormDropdownField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.secondary,
+                cursorColor = MaterialTheme.colorScheme.primary,
                 selectionColors = TextSelectionColors(
-                    handleColor = MaterialTheme.colorScheme.secondary,
-                    backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                    handleColor = MaterialTheme.colorScheme.primary,
+                    backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                 )
             ),
             modifier = Modifier

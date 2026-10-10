@@ -233,8 +233,8 @@ fun SubSettingScreen(
                                     },
                                     modifier = Modifier.scale(0.7f),
                                     colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.secondary
+                                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary
                                     )
                                 )
                             }

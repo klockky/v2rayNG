@@ -249,7 +249,7 @@ fun MainScreen(
                                 start = 0.dp,
                                 top = 0.dp,
                                 end = 0.dp,
-                                bottom = 80.dp
+                                bottom = 16.dp
                             )
                         )
                     }

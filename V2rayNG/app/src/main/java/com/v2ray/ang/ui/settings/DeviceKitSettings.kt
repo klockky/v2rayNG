@@ -18,6 +18,7 @@ import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
 import com.v2ray.ang.handler.MmkvManager.rememberMmkvString
 import com.v2ray.ang.ui.compose.CollapsiblePreferenceGroupHeader
 import com.v2ray.ang.ui.compose.SettingsEditItem
+import com.v2ray.ang.ui.compose.SettingsGroup
 import com.v2ray.ang.ui.compose.SettingsListItem
 import com.v2ray.ang.ui.compose.SettingsMenuItem
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
@@ -61,33 +62,66 @@ fun DeviceKitSettingsGroup() {
         if (flclashxVersion.isBlank()) flclashxVersion = "0.3.0"
     }
 
-    val preset = UserAgentPreset.fromKey(uaPreset)
-
     CollapsiblePreferenceGroupHeader(
         title = stringResource(DkR.string.title_devicekit_settings),
         expanded = expanded,
         onExpandedChange = { expanded = it }
     )
-    if (!expanded) return
+    SettingsGroup(expanded) {
+        DeviceKitItems(
+            enabled = enabled, onEnabledChange = { enabled = it },
+            hwid = hwid, onHwidChange = { hwid = it },
+            os = os, onOsChange = { os = it },
+            osVer = osVer, onOsVerChange = { osVer = it },
+            model = model, onModelChange = { model = it },
+            locale = locale, onLocaleChange = { locale = it },
+            uaPreset = uaPreset, onUaPresetChange = { uaPreset = it },
+            uaCustom = uaCustom, onUaCustomChange = { uaCustom = it },
+            happVersion = happVersion, onHappVersionChange = { happVersion = it },
+            v2rayngVersion = v2rayngVersion, onV2rayngVersionChange = { v2rayngVersion = it },
+            v2raytunPlatform = v2raytunPlatform, onV2raytunPlatformChange = { v2raytunPlatform = it },
+            flclashxVersion = flclashxVersion, onFlclashxVersionChange = { flclashxVersion = it },
+            flclashxPlatform = flclashxPlatform, onFlclashxPlatformChange = { flclashxPlatform = it },
+        )
+    }
+}
+
+@Composable
+private fun DeviceKitItems(
+    enabled: Boolean, onEnabledChange: (Boolean) -> Unit,
+    hwid: String, onHwidChange: (String) -> Unit,
+    os: String, onOsChange: (String) -> Unit,
+    osVer: String, onOsVerChange: (String) -> Unit,
+    model: String, onModelChange: (String) -> Unit,
+    locale: String, onLocaleChange: (String) -> Unit,
+    uaPreset: String, onUaPresetChange: (String) -> Unit,
+    uaCustom: String, onUaCustomChange: (String) -> Unit,
+    happVersion: String, onHappVersionChange: (String) -> Unit,
+    v2rayngVersion: String, onV2rayngVersionChange: (String) -> Unit,
+    v2raytunPlatform: String, onV2raytunPlatformChange: (String) -> Unit,
+    flclashxVersion: String, onFlclashxVersionChange: (String) -> Unit,
+    flclashxPlatform: String, onFlclashxPlatformChange: (String) -> Unit,
+) {
+    val preset = UserAgentPreset.fromKey(uaPreset)
 
     SettingsSwitchItem(
         title = stringResource(DkR.string.title_pref_hwid_enabled),
         summary = stringResource(DkR.string.summary_pref_hwid_enabled),
         checked = enabled,
-        onCheckedChange = { enabled = it }
+        onCheckedChange = { onEnabledChange(it) }
     )
     if (!enabled) return
 
     SettingsEditItem(
         title = stringResource(DkR.string.title_pref_hwid_val),
         value = hwid,
-        onValueChanged = { hwid = it }
+        onValueChanged = { onHwidChange(it) }
     )
     SettingsMenuItem(
         title = stringResource(DkR.string.title_pref_hwid_randomize),
         subtitle = stringResource(DkR.string.summary_pref_hwid_randomize),
         onClick = {
-            hwid = ByteArray(8).also { Random.nextBytes(it) }.joinToString("") { "%02x".format(it) }
+            onHwidChange(ByteArray(8).also { Random.nextBytes(it) }.joinToString("") { "%02x".format(it) })
         }
     )
     SettingsListItem(
@@ -95,41 +129,41 @@ fun DeviceKitSettingsGroup() {
         entries = stringArrayResource(DkR.array.hwid_os_entries).toList(),
         values = stringArrayResource(DkR.array.hwid_os_values).toList(),
         selectedValue = os,
-        onSelected = { os = it }
+        onSelected = { onOsChange(it) }
     )
     SettingsEditItem(
         title = stringResource(DkR.string.title_pref_hwid_os_ver),
         value = osVer,
-        onValueChanged = { osVer = it }
+        onValueChanged = { onOsVerChange(it) }
     )
     SettingsEditItem(
         title = stringResource(DkR.string.title_pref_hwid_model),
         value = model,
-        onValueChanged = { model = it }
+        onValueChanged = { onModelChange(it) }
     )
     SettingsEditItem(
         title = stringResource(DkR.string.title_pref_hwid_locale),
         value = locale,
-        onValueChanged = { locale = it }
+        onValueChanged = { onLocaleChange(it) }
     )
     SettingsListItem(
         title = stringResource(DkR.string.title_pref_hwid_user_agent_preset),
         entries = stringArrayResource(DkR.array.hwid_user_agent_preset_entries).toList(),
         values = stringArrayResource(DkR.array.hwid_user_agent_preset_values).toList(),
         selectedValue = uaPreset,
-        onSelected = { uaPreset = it }
+        onSelected = { onUaPresetChange(it) }
     )
     when (preset) {
         UserAgentPreset.HAPP -> SettingsEditItem(
             title = stringResource(DkR.string.title_pref_hwid_user_agent_happ_version),
             value = happVersion,
-            onValueChanged = { happVersion = it }
+            onValueChanged = { onHappVersionChange(it) }
         )
 
         UserAgentPreset.V2RAYNG -> SettingsEditItem(
             title = stringResource(DkR.string.title_pref_hwid_user_agent_v2rayng_version),
             value = v2rayngVersion,
-            onValueChanged = { v2rayngVersion = it }
+            onValueChanged = { onV2rayngVersionChange(it) }
         )
 
         UserAgentPreset.V2RAYTUN -> SettingsListItem(
@@ -137,28 +171,28 @@ fun DeviceKitSettingsGroup() {
             entries = stringArrayResource(DkR.array.hwid_v2raytun_platform_entries).toList(),
             values = stringArrayResource(DkR.array.hwid_v2raytun_platform_values).toList(),
             selectedValue = v2raytunPlatform,
-            onSelected = { v2raytunPlatform = it }
+            onSelected = { onV2raytunPlatformChange(it) }
         )
 
         UserAgentPreset.FLCLASHX -> {
             SettingsEditItem(
                 title = stringResource(DkR.string.title_pref_hwid_user_agent_flclashx_version),
                 value = flclashxVersion,
-                onValueChanged = { flclashxVersion = it }
+                onValueChanged = { onFlclashxVersionChange(it) }
             )
             SettingsListItem(
                 title = stringResource(DkR.string.title_pref_hwid_flclashx_platform),
                 entries = stringArrayResource(DkR.array.hwid_flclashx_platform_entries).toList(),
                 values = stringArrayResource(DkR.array.hwid_flclashx_platform_values).toList(),
                 selectedValue = flclashxPlatform,
-                onSelected = { flclashxPlatform = it }
+                onSelected = { onFlclashxPlatformChange(it) }
             )
         }
 
         UserAgentPreset.CUSTOM -> SettingsEditItem(
             title = stringResource(DkR.string.title_pref_hwid_user_agent),
             value = uaCustom,
-            onValueChanged = { uaCustom = it }
+            onValueChanged = { onUaCustomChange(it) }
         )
 
         UserAgentPreset.AUTO -> Unit

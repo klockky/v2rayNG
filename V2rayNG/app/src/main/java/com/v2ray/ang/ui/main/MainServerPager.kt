@@ -1,5 +1,10 @@
 package com.v2ray.ang.ui.main
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,10 +54,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.LocateTarget
 import com.v2ray.ang.dto.entities.ProfileItem
-import com.v2ray.ang.ui.compose.ItemDivider
 import com.v2ray.ang.ui.compose.ReorderableGridItem
 import com.v2ray.ang.ui.compose.ReorderableListItem
-import com.v2ray.ang.ui.compose.colorConfigType
 import com.v2ray.ang.ui.compose.colorPing
 import com.v2ray.ang.ui.compose.colorPingRed
 import com.v2ray.ang.ui.compose.verticalScrollbar
@@ -157,7 +160,7 @@ private fun ServerListPage(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScrollbar(gridState),
-            contentPadding = contentPadding
+            contentPadding = contentPadding.withCardInset()
         ) {
             itemsIndexed(items = rows, key = { _, item -> item.guid }) { _, row ->
                 val content: @Composable () -> Unit = {
@@ -200,7 +203,7 @@ private fun ServerListPage(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScrollbar(listState),
-            contentPadding = contentPadding
+            contentPadding = contentPadding.withCardInset()
         ) {
             itemsIndexed(items = rows, key = { _, item -> item.guid }) { _, row ->
                 if (canReorder && reorderableState != null) {
@@ -218,7 +221,6 @@ private fun ServerListPage(
                                 actions = actions
                             )
                         }
-                        ItemDivider()
                     }
                 } else {
                     ServerItemRow(
@@ -226,7 +228,6 @@ private fun ServerListPage(
                         isSelected = row.guid == selectedGuid,
                         actions = actions
                     )
-                    ItemDivider()
                 }
             }
         }
@@ -286,15 +287,12 @@ private fun ServerItemColumn(
     doubleColumnDisplay: Boolean,
     actions: ServerRowActions
 ) {
-    Column {
-        ServerListItem(
-            row = row,
-            isSelected = isSelected,
-            doubleColumnDisplay = doubleColumnDisplay,
-            actions = actions
-        )
-        ItemDivider()
-    }
+    ServerListItem(
+        row = row,
+        isSelected = isSelected,
+        doubleColumnDisplay = doubleColumnDisplay,
+        actions = actions
+    )
 }
 
 @Composable
@@ -314,10 +312,29 @@ private fun ServerListItem(
     } else {
         null
     }
+    val motion = MaterialTheme.motionScheme
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isSelected) 28.dp else 12.dp,
+        animationSpec = motion.defaultSpatialSpec(),
+        label = "ServerCardCorner"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceContainer,
+        animationSpec = motion.defaultEffectsSpec(),
+        label = "ServerCardColor"
+    )
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+    else MaterialTheme.colorScheme.onSurface
+    val secondaryTextColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+    else MaterialTheme.colorScheme.onSurfaceVariant
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min)
+            .padding(horizontal = 4.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(containerColor)
             .semantics {
                 if (selectedStateDescription != null) {
                     stateDescription = selectedStateDescription
@@ -325,32 +342,21 @@ private fun ServerListItem(
             }
             .clickable { actions.select(row.guid) }
     ) {
-        Box(
-            Modifier
-                .width(10.dp)
-                .fillMaxHeight()
-        ) {
-            if (isSelected) {
-                Row {
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        Modifier
-                            .width(4.dp)
-                            .fillMaxHeight()
-                            .padding(vertical = 10.dp)
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
-                }
-            }
-        }
-
+      CompositionLocalProvider(LocalContentColor provides contentColor) {
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(row.remarks, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    row.remarks,
+                    Modifier.weight(1f),
+                    style = (if (isSelected) MaterialTheme.typography.titleMediumEmphasized else MaterialTheme.typography.titleMedium)
+                        .copy(lineBreak = LineBreak.Paragraph),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (doubleColumnDisplay) {
                     IconButton(onClick = { actions.more(row.guid, row.profile) }, Modifier.size(36.dp)) {
                         Icon(
@@ -390,16 +396,17 @@ private fun ServerListItem(
                         Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)), Alignment.Center
+                            .background(MaterialTheme.colorScheme.tertiaryContainer), Alignment.Center
                     ) {
-                        Text(row.subscriptionBadge.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(row.subscriptionBadge.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
                     row.statistics,
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = secondaryTextColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -409,21 +416,22 @@ private fun ServerListItem(
                 Text(
                     row.typeDescription,
                     modifier = Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorConfigType,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     testResult,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = if (row.testDelayMillis < 0L) colorPingRed else colorPing,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
+      }
     }
 }
 
@@ -442,3 +450,11 @@ internal suspend fun PagerState.navigateToPageOptimized(
         scrollToPage(target)
     }
 }
+
+/** Side and inter-item inset for the card-style server list. */
+private fun PaddingValues.withCardInset(): PaddingValues = PaddingValues(
+    start = 8.dp,
+    top = 4.dp,
+    end = 8.dp,
+    bottom = calculateBottomPadding()
+)

@@ -420,8 +420,8 @@ fun ServerCustomConfigScreen(
 
                     CompositionLocalProvider(
                         LocalTextSelectionColors provides TextSelectionColors(
-                            handleColor = MaterialTheme.colorScheme.secondary,
-                            backgroundColor = MaterialTheme.colorScheme.secondary.copy(
+                            handleColor = MaterialTheme.colorScheme.primary,
+                            backgroundColor = MaterialTheme.colorScheme.primary.copy(
                                 alpha = 0.4f
                             )
                         )
@@ -440,7 +440,7 @@ fun ServerCustomConfigScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             ),
                             lineLimits = TextFieldLineLimits.MultiLine(),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.secondary),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             onTextLayout = { resultProvider ->
                                 textLayoutResult = resultProvider()
                             },
